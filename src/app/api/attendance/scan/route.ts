@@ -14,7 +14,7 @@ import { rateLimit, ATTENDANCE_LIMIT } from "@/lib/rate-limit";
 import { checkIn, requestSignout } from "@/lib/attendance-service";
 import { getClientIp, getDeviceType } from "@/lib/utils";
 
-const bodySchema = z.object({ token: z.string().min(10).max(500), sessionId: z.string().uuid() });
+const bodySchema = z.object({ token: z.string().min(10).max(500), sessionId: z.string().cuid() });
 
 export async function POST(req: NextRequest) {
   try {
