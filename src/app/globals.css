@@ -1,0 +1,21 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+  .dark {
+    color-scheme: dark;
+  }
+  body {
+    @apply bg-slate-50 text-slate-900 antialiased dark:bg-navy-950 dark:text-slate-100;
+  }
+}
+
+@layer utilities {
+  .card {
+    @apply rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-navy-800 dark:bg-navy-900;
+  }
+}

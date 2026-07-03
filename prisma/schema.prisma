@@ -1,0 +1,180 @@
+// BUCC Attendance Management System — database schema
+// SQLite + Prisma. See README for migration instructions.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+// ── Core models ───────────────────────────────────────────────────────
+
+/// A club member. Profile fields are auto-populated from CentralMember
+/// on first login and refreshed on admin-triggered sync.
+model Member {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  name            String
+  studentId       String   @unique @map("student_id")
+  department      String
+  designation     String
+  role            String   @default("MEMBER")
+  profilePhotoUrl String?  @map("profile_photo_url")
+  joinDate        DateTime @default(now()) @map("join_date")
+  isActive        Boolean  @default(true) @map("is_active")
+  createdAt       DateTime @default(now()) @map("created_at")
+  updatedAt       DateTime @updatedAt @map("updated_at")
+
+  attendance       Attendance[]
+  createdSessions  Session[]        @relation("SessionCreator")
+  reviewedSignouts SignoutRequest[] @relation("SignoutReviewer")
+  notifications    Notification[]
+  announcements    Announcement[]
+  auditLogs        AuditLog[]
+
+  @@index([department])
+  @@index([role])
+  @@index([isActive])
+  @@map("members")
+}
+
+/// Mirror of the club's Central Member Database. Acts as the source of
+/// truth for who is allowed to log in.
+model CentralMember {
+  id          String   @id @default(cuid())
+  email       String   @unique
+  name        String
+  studentId   String   @unique @map("student_id")
+  department  String
+  designation String
+  joinDate    DateTime @default(now()) @map("join_date")
+  isActive    Boolean  @default(true) @map("is_active")
+
+  @@map("central_members")
+}
+
+/// An event/volunteering session that members check in to.
+model Session {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  venue       String?
+  startsAt    DateTime  @map("starts_at")
+  endsAt      DateTime  @map("ends_at")
+  /// Per-session HMAC key component; rotating QR tokens are derived from it.
+  qrSecret    String    @map("qr_secret")
+  isActive    Boolean   @default(true) @map("is_active")
+  /// iCal-style hint for recurring sessions: NONE | WEEKLY | MONTHLY
+  recurrence  String    @default("NONE")
+  createdById String    @map("created_by")
+  createdAt   DateTime  @default(now()) @map("created_at")
+
+  createdBy  Member       @relation("SessionCreator", fields: [createdById], references: [id])
+  attendance Attendance[]
+
+  @@index([isActive, startsAt])
+  @@map("sessions")
+}
+
+/// One attendance record per member per session (enforced by @@unique).
+model Attendance {
+  id                   String           @id @default(cuid())
+  memberId             String           @map("member_id")
+  sessionId            String           @map("session_id")
+  checkInAt            DateTime         @default(now()) @map("check_in_at")
+  checkOutRequestedAt  DateTime?        @map("check_out_requested_at")
+  checkOutApprovedAt   DateTime?        @map("check_out_approved_at")
+  approvedById         String?          @map("approved_by")
+  status               String           @default("PRESENT")
+  method               String
+  /// Audit trail: request origin
+  checkInIp            String?          @map("check_in_ip")
+  deviceType           String?          @map("device_type")
+  notes                String?
+  durationMinutes      Int?             @map("duration_minutes")
+
+  member          Member           @relation(fields: [memberId], references: [id])
+  session         Session          @relation(fields: [sessionId], references: [id])
+  signoutRequests SignoutRequest[]
+
+  @@index([sessionId, status])
+  @@index([memberId, checkInAt])
+  @@index([status])
+  @@index([checkInAt])
+  @@map("attendance")
+}
+
+/// Every sign-out attempt gets its own row (a rejected request can be
+/// re-submitted, producing a new row). Full audit history is preserved.
+model SignoutRequest {
+  id              String        @id @default(cuid())
+  attendanceId    String        @map("attendance_id")
+  requestedAt     DateTime      @default(now()) @map("requested_at")
+  reviewedById    String?       @map("reviewed_by")
+  reviewedAt      DateTime?     @map("reviewed_at")
+  action          String        @default("PENDING")
+  rejectionReason String?       @map("rejection_reason")
+  /// true once the 30-minute no-response escalation to GB + HR_SE has fired
+  isEscalated     Boolean       @default(false) @map("is_escalated")
+  /// true when auto-approved by the 2-hour timeout — needs manual review
+  needsReview     Boolean       @default(false) @map("needs_review")
+
+  attendance Attendance @relation(fields: [attendanceId], references: [id])
+  reviewedBy Member?    @relation("SignoutReviewer", fields: [reviewedById], references: [id])
+
+  @@index([action, requestedAt])
+  @@index([attendanceId])
+  @@map("signout_requests")
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  memberId  String           @map("user_id")
+  type      String
+  message   String
+  isRead    Boolean          @default(false) @map("is_read")
+  // SQLite doesn't support Json, use String
+  metadata  String?          @map("metadata_json")
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  member Member @relation(fields: [memberId], references: [id])
+
+  @@index([memberId, isRead])
+  @@index([memberId, createdAt])
+  @@map("notifications")
+}
+
+/// GB-posted banner shown on all dashboards.
+model Announcement {
+  id          String   @id @default(cuid())
+  message     String
+  isActive    Boolean  @default(true) @map("is_active")
+  createdById String   @map("created_by")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  createdBy Member @relation(fields: [createdById], references: [id])
+
+  @@index([isActive, createdAt])
+  @@map("announcements")
+}
+
+/// Immutable audit trail for privileged actions (approvals, rejections,
+/// member management, QR generation, central-DB syncs).
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String   @map("actor_id")
+  action     String // e.g. SIGNOUT_APPROVED, MEMBER_DEACTIVATED, CENTRAL_SYNC
+  targetType String   @map("target_type")
+  targetId   String?  @map("target_id")
+  metadata   String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  actor Member @relation(fields: [actorId], references: [id])
+
+  @@index([actorId, createdAt])
+  @@index([action, createdAt])
+  @@map("audit_logs")
+}
