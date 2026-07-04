@@ -48,8 +48,8 @@ export async function GET(req: NextRequest) {
       lines.push([
         r.member?.name || "", r.member?.studentId || "", r.member?.email || "", r.member?.department || "",
         r.member?.designation || "", r.session?.name || "",
-        r.checkInAt ? r.checkInAt.toLocaleString() : "", 
-        r.checkOutApprovedAt ? r.checkOutApprovedAt.toLocaleString() : "", 
+        r.checkInAt ? r.checkInAt.toLocaleString('en-US', { timeZone: 'Asia/Dhaka' }) : "", 
+        r.checkOutApprovedAt ? r.checkOutApprovedAt.toLocaleString('en-US', { timeZone: 'Asia/Dhaka' }) : "", 
         r.status, r.method,
         r.durationMinutes ?? "",
       ].map(csvEscape).join(","));
