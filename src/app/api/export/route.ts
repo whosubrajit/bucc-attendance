@@ -41,15 +41,16 @@ export async function GET(req: NextRequest) {
 
     const header = [
       "Name", "Student ID", "Email", "Department", "Designation", "Session",
-      "Check-in", "Sign-out Requested", "Sign-out Approved", "Status", "Method", "Duration (min)",
+      "Sign-in Time", "Sign-out Time", "Status", "Method", "Duration (min)",
     ];
     const lines = [header.join(",")];
     for (const r of rows) {
       lines.push([
-        r.member.name, r.member.studentId, r.member.email, r.member.department,
-        r.member.designation, r.session.name,
-        r.checkInAt.toISOString(), r.checkOutRequestedAt?.toISOString() ?? "",
-        r.checkOutApprovedAt?.toISOString() ?? "", r.status, r.method,
+        r.member?.name || "", r.member?.studentId || "", r.member?.email || "", r.member?.department || "",
+        r.member?.designation || "", r.session?.name || "",
+        r.checkInAt ? r.checkInAt.toLocaleString() : "", 
+        r.checkOutApprovedAt ? r.checkOutApprovedAt.toLocaleString() : "", 
+        r.status, r.method,
         r.durationMinutes ?? "",
       ].map(csvEscape).join(","));
     }

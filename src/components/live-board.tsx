@@ -129,7 +129,7 @@ export function LiveBoard({ global }: { global: boolean }) {
           <option value="LEFT">Left</option>
         </select>
         <input type="date" value={date} onChange={(e) => { setDate(e.target.value); setPage(1); }} aria-label="Filter by date" className={inputCls} />
-        <a href={`/api/export?${date ? `from=${date}&to=${date}` : `from=${format(new Date(), "yyyy-MM-dd")}&to=${format(new Date(), "yyyy-MM-dd")}`}`}>
+        <a href={`/api/export?${date ? `from=${date}&to=${date}` : ''}`}>
           <Button variant="secondary"><Download className="h-4 w-4" aria-hidden /> CSV</Button>
         </a>
       </div>
