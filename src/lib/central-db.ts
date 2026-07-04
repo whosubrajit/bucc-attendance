@@ -15,7 +15,10 @@ import { prisma } from "@/lib/prisma";
 import { z } from "zod";
 
 /** Map free-text department/designation from the central DB to a Role. */
-export function deriveRole(department: string, designation: string): Role {
+export function deriveRole(department: string, designation: string, email?: string): Role {
+  if (email?.toLowerCase() === "dibyosingho.barua.subrajit@g.bracu.ac.bd") {
+    return Role.GB;
+  }
   const dept = department.toLowerCase();
   const desg = designation.toLowerCase();
   const isHR = dept.includes("human resource") || dept === "hr";
@@ -80,7 +83,7 @@ export async function syncFromCentral(): Promise<{ pulled: number; refreshed: nu
         studentId: c.studentId,
         department: c.department,
         designation: c.designation,
-        role: deriveRole(c.department, c.designation),
+        role: deriveRole(c.department, c.designation, c.email),
         isActive: c.isActive,
       },
     });
