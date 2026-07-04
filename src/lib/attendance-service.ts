@@ -323,7 +323,7 @@ export async function escalateStaleRequests(): Promise<{ escalated: number; auto
 /** Roles allowed to see a given pending request in their approvals panel. */
 export function approvalScopeWhere(approver: Member) {
   if (approver.role === Role.EB || approver.role === Role.SE) {
-    return { attendance: { member: { department: approver.department } } };
+    return { attendance: { memberId: { not: approver.id }, member: { department: approver.department } } };
   }
-  return {}; // HR_EB, HR_SE, GB see everything
+  return { attendance: { memberId: { not: approver.id } } }; // HR_EB, HR_SE, GB see everything except their own
 }

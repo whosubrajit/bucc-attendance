@@ -9,9 +9,9 @@ import { Role } from "@/lib/enums";
 
 export const ROLE_LABELS: Record<Role, string> = {
   MEMBER: "Member",
-  EB: "Executive Body",
+  EB: "Director, Assistant Directors",
   SE: "Senior Executive",
-  HR_EB: "HR Executive Body",
+  HR_EB: "Director, Assistant Directors of HR",
   HR_SE: "HR Senior Executive",
   GB: "Governing Body",
 };

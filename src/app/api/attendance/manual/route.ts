@@ -24,8 +24,16 @@ export async function POST(req: NextRequest) {
   try {
     assertSameOrigin(req);
     const member = await requireMember();
+    const { sessionId, lat, lng } = bodySchema.parse(await req.json());
+
     if (!["HR_SE", "HR_EB", "GB"].includes(member.role)) {
-      throw new ApiError(403, "You must scan your QR code to check in. Manual check-in is restricted.");
+      const prevAttendance = await prisma.attendance.findFirst({
+        where: { memberId: member.id, sessionId },
+        orderBy: { checkInAt: "desc" },
+      });
+      if (!prevAttendance || prevAttendance.status !== "LEFT") {
+        throw new ApiError(403, "You must scan your QR code to check in. Manual check-in is restricted.");
+      }
     }
 
     const rl = rateLimit(`attend:${member.id}`, ATTENDANCE_LIMIT);
@@ -36,7 +44,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { sessionId, lat, lng } = bodySchema.parse(await req.json());
+
 
     const radius = Number(process.env.CAMPUS_RADIUS_M);
     if (radius > 0) {

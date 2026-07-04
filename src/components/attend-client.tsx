@@ -253,15 +253,25 @@ export function AttendClient({ member }: { member: any }) {
             )}
 
             <div className="mt-3 space-y-2">
-              {!needsQr && (!s.attendance || s.attendance.status === "LEFT") && (
+              {!needsQr && !s.attendance && (
                 <Button
                   variant="secondary"
                   className="w-full"
                   loading={busy === s.id}
                   onClick={() => manualCheckIn(s.id)}
                 >
-                  <MapPin className="h-4 w-4" aria-hidden />{" "}
-                  {s.attendance?.status === "LEFT" ? "I'm Back!" : "Confirm My Attendance"}
+                  <MapPin className="h-4 w-4" aria-hidden /> Confirm My Attendance
+                </Button>
+              )}
+              
+              {s.attendance?.status === "LEFT" && (
+                <Button
+                  variant="secondary"
+                  className="w-full"
+                  loading={busy === s.id}
+                  onClick={() => manualCheckIn(s.id)}
+                >
+                  <MapPin className="h-4 w-4" aria-hidden /> I'm Back!
                 </Button>
               )}
               

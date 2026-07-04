@@ -9,6 +9,7 @@ import { LiveBoard } from "@/components/live-board";
 export default async function LiveBoardPage() {
   const member = await requirePagePermission("live:department");
   const global = can(member.role, "live:all");
+  const canExport = can(member.role, "reports:export");
   return (
     <>
       <div className="mb-6">
@@ -17,7 +18,7 @@ export default async function LiveBoardPage() {
           {global ? "All departments" : `${member.department} department`} · updates in realtime
         </p>
       </div>
-      <LiveBoard global={global} />
+      <LiveBoard global={global} canExport={canExport} />
     </>
   );
 }

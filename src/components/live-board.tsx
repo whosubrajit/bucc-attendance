@@ -33,7 +33,7 @@ type LiveResponse = {
 const inputCls =
   "h-10 rounded-xl border border-slate-300 bg-white px-3 text-sm dark:border-navy-700 dark:bg-navy-900";
 
-export function LiveBoard({ global }: { global: boolean }) {
+export function LiveBoard({ global, canExport }: { global: boolean, canExport?: boolean }) {
   const [q, setQ] = useState("");
   const [department, setDepartment] = useState("");
   const [status, setStatus] = useState("");
@@ -139,9 +139,11 @@ export function LiveBoard({ global }: { global: boolean }) {
           ))}
         </select>
         <input type="date" value={date} onChange={(e) => { setDate(e.target.value); setPage(1); }} aria-label="Filter by date" className={inputCls} />
-        <a href={`/api/export?${session ? `sessionId=${session}` : (date ? `from=${date}&to=${date}` : '')}`}>
-          <Button variant="secondary"><Download className="h-4 w-4" aria-hidden /> CSV</Button>
-        </a>
+        {canExport && (
+          <a href={`/api/export?${session ? `sessionId=${session}` : (date ? `from=${date}&to=${date}` : '')}`}>
+            <Button variant="secondary"><Download className="h-4 w-4" aria-hidden /> CSV</Button>
+          </a>
+        )}
       </div>
 
       {/* Table */}
