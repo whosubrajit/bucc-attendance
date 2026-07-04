@@ -38,6 +38,7 @@ export function LiveBoard({ global }: { global: boolean }) {
   const [department, setDepartment] = useState("");
   const [status, setStatus] = useState("");
   const [date, setDate] = useState(""); // empty = today
+  const [session, setSession] = useState("");
   const [page, setPage] = useState(1);
   const [expanded, setExpanded] = useState<string | null>(null);
   const debouncedQ = useDebounce(q);
@@ -48,12 +49,15 @@ export function LiveBoard({ global }: { global: boolean }) {
   if (department) params.set("department", department);
   if (status) params.set("status", status);
   if (date) params.set("date", date);
+  if (session) params.set("sessionId", session);
   params.set("page", String(page));
 
   const { data, isLoading } = useSWR<LiveResponse>(`/api/dashboard/live?${params}`, {
     refreshInterval: 30000, // polling fallback under SSE
     keepPreviousData: true,
   });
+  
+  const { data: sessionData } = useSWR<{ sessions: { id: string; name: string }[] }>("/api/sessions");
 
   const counts = data?.counts ?? {};
   const present = counts.PRESENT ?? 0;
@@ -128,8 +132,14 @@ export function LiveBoard({ global }: { global: boolean }) {
           <option value="PENDING_SIGNOUT">Pending Sign-Out</option>
           <option value="LEFT">Left</option>
         </select>
+        <select value={session} onChange={(e) => { setSession(e.target.value); setPage(1); }} aria-label="Filter by event" className={inputCls}>
+          <option value="">All events</option>
+          {sessionData?.sessions.map((s) => (
+            <option key={s.id} value={s.id}>{s.name}</option>
+          ))}
+        </select>
         <input type="date" value={date} onChange={(e) => { setDate(e.target.value); setPage(1); }} aria-label="Filter by date" className={inputCls} />
-        <a href={`/api/export?${date ? `from=${date}&to=${date}` : ''}`}>
+        <a href={`/api/export?${session ? `sessionId=${session}` : (date ? `from=${date}&to=${date}` : '')}`}>
           <Button variant="secondary"><Download className="h-4 w-4" aria-hidden /> CSV</Button>
         </a>
       </div>

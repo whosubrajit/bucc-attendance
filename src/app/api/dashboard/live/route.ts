@@ -26,6 +26,7 @@ export async function GET(req: NextRequest) {
     const status = p.get("status") as AttendanceStatus | null;
     const q = p.get("q")?.trim();
     const dateStr = p.get("date"); // YYYY-MM-DD, defaults to today
+    const sessionId = p.get("sessionId");
     const page = Math.max(1, Number(p.get("page")) || 1);
     const pageSize = Math.min(200, Number(p.get("pageSize")) || 50);
 
@@ -33,7 +34,7 @@ export async function GET(req: NextRequest) {
     const nextDay = new Date(day.getTime() + 24 * 60 * 60 * 1000);
 
     const where = {
-      checkInAt: { gte: day, lt: nextDay },
+      ...(sessionId ? { sessionId } : { checkInAt: { gte: day, lt: nextDay } }),
       ...(status && Object.values(AttendanceStatus).includes(status) ? { status } : {}),
       member: {
         ...(department ? { department } : {}),
@@ -55,19 +56,31 @@ export async function GET(req: NextRequest) {
       prisma.attendance.count({ where }),
       prisma.attendance.groupBy({
         by: ["status"],
-        where: { checkInAt: { gte: day, lt: nextDay }, ...(department ? { member: { department } } : {}) },
+        where: { 
+          ...(sessionId ? { sessionId } : { checkInAt: { gte: day, lt: nextDay } }), 
+          ...(department ? { member: { department } } : {}) 
+        },
         _count: true,
       }),
       // Per-department breakdown (only meaningful for global viewers)
       seesAll
-        ? prisma.$queryRaw<{ department: string; present: bigint; pending: bigint; left: bigint }[]>`
-            SELECT m.department,
-                   COUNT(*) FILTER (WHERE a.status = 'PRESENT')          AS present,
-                   COUNT(*) FILTER (WHERE a.status = 'PENDING_SIGNOUT')  AS pending,
-                   COUNT(*) FILTER (WHERE a.status = 'LEFT')             AS "left"
-            FROM attendance a JOIN members m ON m.id = a.member_id
-            WHERE a.check_in_at >= ${day} AND a.check_in_at < ${nextDay}
-            GROUP BY m.department ORDER BY m.department`
+        ? (sessionId
+            ? prisma.$queryRaw<{ department: string; present: bigint; pending: bigint; left: bigint }[]>`
+                SELECT m.department,
+                       COUNT(*) FILTER (WHERE a.status = 'PRESENT')          AS present,
+                       COUNT(*) FILTER (WHERE a.status = 'PENDING_SIGNOUT')  AS pending,
+                       COUNT(*) FILTER (WHERE a.status = 'LEFT')             AS "left"
+                FROM attendance a JOIN members m ON m.id = a.member_id
+                WHERE a.session_id = ${sessionId}
+                GROUP BY m.department ORDER BY m.department`
+            : prisma.$queryRaw<{ department: string; present: bigint; pending: bigint; left: bigint }[]>`
+                SELECT m.department,
+                       COUNT(*) FILTER (WHERE a.status = 'PRESENT')          AS present,
+                       COUNT(*) FILTER (WHERE a.status = 'PENDING_SIGNOUT')  AS pending,
+                       COUNT(*) FILTER (WHERE a.status = 'LEFT')             AS "left"
+                FROM attendance a JOIN members m ON m.id = a.member_id
+                WHERE a.check_in_at >= ${day} AND a.check_in_at < ${nextDay}
+                GROUP BY m.department ORDER BY m.department`)
         : Promise.resolve([]),
     ]);
 
