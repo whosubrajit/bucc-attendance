@@ -17,6 +17,8 @@ import { cn } from "@/lib/utils";
 type LiveRow = {
   id: string;
   checkInAt: string;
+  checkOutApprovedAt?: string | null;
+  checkOutRequestedAt?: string | null;
   status: string;
   method: string;
   member: { name: string; department: string; designation: string };
@@ -169,6 +171,7 @@ export function LiveBoard({ global, canExport }: { global: boolean, canExport?: 
                   <th className="px-4 py-2">Designation</th>
                   <th className="px-4 py-2">Session</th>
                   <th className="px-4 py-2">Check-in</th>
+                  <th className="px-4 py-2">Check-out</th>
                   <th className="px-4 py-2">Status</th>
                   {global && <th className="px-4 py-2">Actions</th>}
                 </tr>
@@ -181,6 +184,11 @@ export function LiveBoard({ global, canExport }: { global: boolean, canExport?: 
                     <td className="px-4 py-2.5">{r.member.designation}</td>
                     <td className="px-4 py-2.5">{r.session.name}</td>
                     <td className="whitespace-nowrap px-4 py-2.5">{format(new Date(r.checkInAt), "h:mm a")}</td>
+                    <td className="whitespace-nowrap px-4 py-2.5 text-slate-500">
+                      {r.checkOutApprovedAt || r.checkOutRequestedAt
+                        ? format(new Date(r.checkOutApprovedAt || r.checkOutRequestedAt!), "h:mm a")
+                        : "—"}
+                    </td>
                     <td className="px-4 py-2.5"><StatusBadge status={r.status} /></td>
                     {global && (
                       <td className="px-4 py-2.5">
