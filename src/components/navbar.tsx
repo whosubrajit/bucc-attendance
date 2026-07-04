@@ -11,7 +11,6 @@ import { NotificationBell } from "@/components/notification-bell";
 import { cn } from "@/lib/utils";
 
 const NAV = [
-  { href: "/dashboard", label: "My Attendance", roles: ["MEMBER", "EB", "SE", "HR_EB", "HR_SE", "GB"] },
   { href: "/dashboard/live", label: "Live Board", roles: ["EB", "SE", "HR_EB", "HR_SE", "GB"] },
   { href: "/dashboard/approvals", label: "Approvals", roles: ["EB", "SE", "HR_EB", "HR_SE", "GB"] },
   { href: "/dashboard/analytics", label: "Analytics", roles: ["EB", "SE", "HR_EB", "HR_SE", "GB"] },
