@@ -60,6 +60,9 @@ export async function checkIn(
       department: member.department,
       sessionId,
     });
+    publish(`member:${member.id}`, "check_in", {
+      sessionName: session.name,
+    });
     return { attendance, session };
   } catch (err: unknown) {
     throw err;

@@ -52,7 +52,11 @@ export function AttendClient({ member }: { member: any }) {
   const [showQr, setShowQr] = useState(false);
   const [showEventForm, setShowEventForm] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
-  useRealtime();
+  useRealtime((event) => {
+    if (event.channel === `member:${member.id}` && event.type === "check_in") {
+      celebrate();
+    }
+  });
 
   const isScanner = ["EB", "HR_SE", "HR_EB", "GB"].includes(member.role);
   const needsQr = !["HR_SE", "HR_EB", "GB"].includes(member.role);
@@ -66,7 +70,6 @@ export function AttendClient({ member }: { member: any }) {
         const raw = token.includes("token=") ? new URL(token).searchParams.get("token") ?? token : token;
         const result = await post("/api/attendance/scan", { token: raw, sessionId: scanningSession });
         if (result.action === "checked_in") {
-          celebrate();
           toast("success", result.message);
         } else {
           toast("info", result.message);
@@ -96,7 +99,6 @@ export function AttendClient({ member }: { member: any }) {
         sessionId,
         ...(coords ? { lat: coords.latitude, lng: coords.longitude } : {}),
       });
-      celebrate();
       toast("success", result.message);
       void mutate();
     } catch (err) {
