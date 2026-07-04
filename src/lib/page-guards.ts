@@ -13,7 +13,11 @@ export async function getCurrentMember(): Promise<Member | null> {
   const session = await getServerSession(authOptions);
   if (!session?.user?.memberId) return null;
   const member = await prisma.member.findUnique({ where: { id: session.user.memberId } });
-  return member?.isActive ? member : null;
+  if (!member?.isActive) return null;
+  if (member.tempRole && member.tempRoleExpiresAt && member.tempRoleExpiresAt > new Date()) {
+    member.role = member.tempRole;
+  }
+  return member;
 }
 
 export async function requirePageMember(): Promise<Member> {

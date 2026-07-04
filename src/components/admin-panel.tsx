@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import useSWR from "swr";
-import { format } from "date-fns";
+import { format, differenceInHours } from "date-fns";
 import { CalendarPlus, QrCode, RefreshCw, Megaphone, Users } from "lucide-react";
+import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/toaster";
@@ -91,6 +92,17 @@ function SessionsTab() {
     }
   }
 
+  async function deleteSession(id: string, name: string) {
+    if (!confirm(`Are you sure you want to completely delete "${name}"? This will erase all attendance records for this session.`)) return;
+    try {
+      await json(`/api/sessions?id=${id}`, "DELETE");
+      toast("success", "Session deleted");
+      void mutate();
+    } catch (err) {
+      toast("error", err instanceof Error ? err.message : "Failed to delete session");
+    }
+  }
+
   return (
     <div className="space-y-4">
       <Button onClick={() => setShowForm((s) => !s)}>
@@ -139,8 +151,9 @@ function SessionsTab() {
                 {s.venue ? ` · ${s.venue}` : ""} · {s._count.attendance} attendee{s._count.attendance === 1 ? "" : "s"}
               </p>
             </div>
-            <div className="flex items-center gap-2">
-              <a href={`/api/export?sessionId=${s.id}`} className="text-sm text-electric-600 hover:underline">Export CSV</a>
+            <div className="flex items-center gap-3">
+              <a href={`/api/export?sessionId=${s.id}`} className="text-sm font-medium text-electric-600 hover:underline">Export CSV</a>
+              <Button variant="danger" size="sm" onClick={() => deleteSession(s.id, s.name)}>Delete</Button>
             </div>
           </div>
         ))}
@@ -154,9 +167,14 @@ function SessionsTab() {
 type MemberRow = {
   id: string; name: string; email: string; studentId: string; department: string;
   designation: string; role: string; isActive: boolean;
+  tempRole: string | null; tempRoleExpiresAt: string | null;
 };
 
 function MembersTab() {
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === "GB";
+  const isHR = ["GB", "HR_EB", "HR_SE"].includes(session?.user?.role || "");
+
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
   const { data, mutate } = useSWR<{ members: MemberRow[]; total: number; pageSize: number }>(
@@ -181,6 +199,16 @@ function MembersTab() {
     try {
       await json("/api/admin/members", "PATCH", { memberId: m.id, isActive: !m.isActive });
       toast("success", `${m.name} ${m.isActive ? "deactivated" : "activated"}`);
+      void mutate();
+    } catch (err) {
+      toast("error", err instanceof Error ? err.message : "Failed");
+    }
+  }
+
+  async function toggleTempPower(m: MemberRow, grant: boolean) {
+    try {
+      await json("/api/admin/temp-role", "POST", { memberId: m.id, grant });
+      toast("success", grant ? `Granted temp HR admin to ${m.name}` : `Revoked temp power for ${m.name}`);
       void mutate();
     } catch (err) {
       toast("error", err instanceof Error ? err.message : "Failed");
@@ -229,9 +257,24 @@ function MembersTab() {
                   <Badge tone={m.isActive ? "green" : "gray"}>{m.isActive ? "Active" : "Inactive"}</Badge>
                 </td>
                 <td className="px-4 py-2.5 text-right">
-                  <Button variant={m.isActive ? "danger" : "success"} size="sm" onClick={() => toggle(m)}>
-                    {m.isActive ? "Deactivate" : "Activate"}
-                  </Button>
+                  <div className="flex justify-end gap-2">
+                    {isAdmin && (
+                      <Button variant={m.isActive ? "danger" : "success"} size="sm" onClick={() => toggle(m)}>
+                        {m.isActive ? "Deactivate" : "Activate"}
+                      </Button>
+                    )}
+                    {isHR && m.department.toLowerCase() === "human resources" && m.role === "MEMBER" && (
+                      m.tempRole && m.tempRoleExpiresAt && new Date(m.tempRoleExpiresAt) > new Date() ? (
+                        <Button variant="danger" size="sm" onClick={() => toggleTempPower(m, false)}>
+                          Revoke Temp Power ({differenceInHours(new Date(m.tempRoleExpiresAt), new Date())}h left)
+                        </Button>
+                      ) : (
+                        <Button variant="secondary" size="sm" onClick={() => toggleTempPower(m, true)}>
+                          Grant Temp Power
+                        </Button>
+                      )
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

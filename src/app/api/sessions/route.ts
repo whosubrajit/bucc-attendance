@@ -62,3 +62,27 @@ export async function POST(req: NextRequest) {
     return handleApiError(err);
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    assertSameOrigin(req);
+    const gb = await requirePermission("sessions:manage");
+    const { searchParams } = new URL(req.url);
+    const id = searchParams.get("id");
+    if (!id) throw new ApiError(400, "Missing session ID");
+
+    // Must delete in order to satisfy foreign key constraints:
+    // SignoutRequest -> Attendance -> Session
+    await prisma.$transaction([
+      prisma.signoutRequest.deleteMany({ where: { attendance: { sessionId: id } } }),
+      prisma.attendance.deleteMany({ where: { sessionId: id } }),
+      prisma.session.delete({ where: { id } }),
+      prisma.auditLog.create({
+        data: { actorId: gb.id, action: "SESSION_DELETED", targetType: "session", targetId: id },
+      }),
+    ]);
+    return NextResponse.json({ message: "Session deleted" });
+  } catch (err) {
+    return handleApiError(err);
+  }
+}

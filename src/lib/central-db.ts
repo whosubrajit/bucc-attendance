@@ -29,8 +29,8 @@ export function deriveRole(department: string, designation: string, email?: stri
   ) {
     return Role.GB;
   }
-  if (desg.includes("senior executive") || desg.includes("director")) return isHR ? Role.HR_SE : Role.SE;
-  if (desg.includes("executive")) return isHR ? Role.HR_EB : Role.EB;
+  if (desg.includes("director")) return isHR ? Role.HR_EB : Role.EB;
+  if (desg.includes("senior executive")) return isHR ? Role.HR_SE : Role.SE;
   return Role.MEMBER;
 }
 

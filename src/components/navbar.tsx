@@ -14,7 +14,7 @@ const NAV = [
   { href: "/dashboard/live", label: "Live Board", roles: ["EB", "SE", "HR_EB", "HR_SE", "GB"] },
   { href: "/dashboard/approvals", label: "Approvals", roles: ["EB", "SE", "HR_EB", "HR_SE", "GB"] },
   { href: "/dashboard/analytics", label: "Analytics", roles: ["EB", "SE", "HR_EB", "HR_SE", "GB"] },
-  { href: "/dashboard/admin", label: "Admin", roles: ["GB"] },
+  { href: "/dashboard/admin", label: "Admin", roles: ["HR_EB", "HR_SE", "GB"] },
 ];
 
 export function Navbar() {

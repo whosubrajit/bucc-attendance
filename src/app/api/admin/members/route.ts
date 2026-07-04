@@ -11,7 +11,8 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
-    await requirePermission("members:manage");
+    // Both GB and HR can view members (HR needs this to grant temporary powers)
+    await requirePermission("sessions:manage");
     const p = req.nextUrl.searchParams;
     const q = p.get("q")?.trim();
     const department = p.get("department") ?? undefined;
@@ -39,6 +40,7 @@ export async function GET(req: NextRequest) {
         select: {
           id: true, name: true, email: true, studentId: true, department: true,
           designation: true, role: true, isActive: true, profilePhotoUrl: true, joinDate: true,
+          tempRole: true, tempRoleExpiresAt: true,
         },
       }),
       prisma.member.count({ where }),
@@ -54,6 +56,7 @@ const patchSchema = z.object({ memberId: z.string().min(1), isActive: z.boolean(
 export async function PATCH(req: NextRequest) {
   try {
     assertSameOrigin(req);
+    // Only GB can activate/deactivate members globally
     const gb = await requirePermission("members:manage");
     const { memberId, isActive } = patchSchema.parse(await req.json());
     if (memberId === gb.id) throw new ApiError(400, "You cannot deactivate your own account");

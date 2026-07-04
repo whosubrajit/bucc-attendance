@@ -21,6 +21,12 @@ export function StatusBadge({ status }: { status: string }) {
           <span className="h-1.5 w-1.5 rounded-full bg-rose-500" aria-hidden /> Left
         </Badge>
       );
+    case "LEFT_FORCED":
+      return (
+        <Badge tone="red">
+          <span className="h-1.5 w-1.5 rounded-full bg-rose-700" aria-hidden /> Left (Forced)
+        </Badge>
+      );
     default:
       return <Badge>{status}</Badge>;
   }

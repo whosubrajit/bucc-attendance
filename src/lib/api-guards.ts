@@ -27,6 +27,11 @@ export async function requireMember(): Promise<Member> {
   const member = await prisma.member.findUnique({ where: { id: memberId } });
   if (!member) throw new ApiError(401, "Member not found");
   if (!member.isActive) throw new ApiError(403, "Your account has been deactivated");
+  
+  if (member.tempRole && member.tempRoleExpiresAt && member.tempRoleExpiresAt > new Date()) {
+    member.role = member.tempRole;
+  }
+  
   return member;
 }
 

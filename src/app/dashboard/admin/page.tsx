@@ -2,7 +2,7 @@ import { requirePagePermission } from "@/lib/page-guards";
 import { AdminPanel } from "@/components/admin-panel";
 
 export default async function AdminPage() {
-  await requirePagePermission("members:manage");
+  const member = await requirePagePermission("sessions:manage");
   return (
     <>
       <div className="mb-6">

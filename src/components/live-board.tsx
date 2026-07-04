@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/status-badge";
 import { useDebounce } from "@/hooks/use-debounce";
 import { useRealtime } from "@/hooks/use-realtime";
+import { toast } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
 
 type LiveRow = {
@@ -52,7 +53,7 @@ export function LiveBoard({ global, canExport }: { global: boolean, canExport?: 
   if (session) params.set("sessionId", session);
   params.set("page", String(page));
 
-  const { data, isLoading } = useSWR<LiveResponse>(`/api/dashboard/live?${params}`, {
+  const { data, isLoading, mutate } = useSWR<LiveResponse>(`/api/dashboard/live?${params}`, {
     refreshInterval: 30000, // polling fallback under SSE
     keepPreviousData: true,
   });
@@ -169,6 +170,7 @@ export function LiveBoard({ global, canExport }: { global: boolean, canExport?: 
                   <th className="px-4 py-2">Session</th>
                   <th className="px-4 py-2">Check-in</th>
                   <th className="px-4 py-2">Status</th>
+                  {global && <th className="px-4 py-2">Actions</th>}
                 </tr>
               </thead>
               <tbody>
@@ -180,6 +182,34 @@ export function LiveBoard({ global, canExport }: { global: boolean, canExport?: 
                     <td className="px-4 py-2.5">{r.session.name}</td>
                     <td className="whitespace-nowrap px-4 py-2.5">{format(new Date(r.checkInAt), "h:mm a")}</td>
                     <td className="px-4 py-2.5"><StatusBadge status={r.status} /></td>
+                    {global && (
+                      <td className="px-4 py-2.5">
+                        {(r.status === "PRESENT" || r.status === "PENDING_SIGNOUT") && (
+                          <Button 
+                            variant="secondary" 
+                            size="sm" 
+                            onClick={async () => {
+                              if (!confirm(`Force sign out ${r.member.name}?`)) return;
+                              try {
+                                await fetch("/api/attendance/force-signout", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ attendanceId: r.id })
+                                }).then(async res => {
+                                  if (!res.ok) throw new Error((await res.json()).error);
+                                });
+                                toast("success", `Signed out ${r.member.name}`);
+                                mutate();
+                              } catch (err: any) {
+                                toast("error", err.message);
+                              }
+                            }}
+                          >
+                            Force Sign-Out
+                          </Button>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>
