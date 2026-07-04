@@ -13,6 +13,7 @@ import { requireMember, handleApiError, assertSameOrigin, ApiError } from "@/lib
 import { rateLimit, ATTENDANCE_LIMIT } from "@/lib/rate-limit";
 import { checkIn } from "@/lib/attendance-service";
 import { distanceMeters, getClientIp, getDeviceType } from "@/lib/utils";
+import { prisma } from "@/lib/prisma";
 
 const bodySchema = z.object({
   sessionId: z.string().min(1),
