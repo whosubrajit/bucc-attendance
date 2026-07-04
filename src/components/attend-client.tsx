@@ -66,6 +66,7 @@ export function AttendClient({ member }: { member: any }) {
         const raw = token.includes("token=") ? new URL(token).searchParams.get("token") ?? token : token;
         const result = await post("/api/attendance/scan", { token: raw, sessionId: scanningSession });
         if (result.action === "checked_in") {
+          celebrate();
           toast("success", result.message);
         } else {
           toast("info", result.message);
