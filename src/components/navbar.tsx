@@ -28,12 +28,12 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-navy-800 dark:bg-navy-950/80">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-4">
-        <Link href="/" className="flex items-center gap-2 font-bold text-navy-800 dark:text-white">
+        <Link href="/" className="flex shrink-0 items-center gap-2 font-bold text-navy-800 dark:text-white">
           <span className="rounded-lg bg-navy-800 px-2 py-1 text-xs text-white dark:bg-electric-600">BUCC</span>
           <span className="hidden sm:inline">Attendance</span>
         </Link>
 
-        <nav className="flex items-center gap-1 overflow-x-auto text-sm" aria-label="Main">
+        <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto text-sm" aria-label="Main">
           {links.map((l) => (
             <Link
               key={l.href}
@@ -50,7 +50,7 @@ export function Navbar() {
           ))}
         </nav>
 
-        <div className="flex items-center gap-1">
+        <div className="flex shrink-0 items-center gap-1">
           <Link
             href="/attend"
             className="hidden items-center gap-1.5 rounded-lg bg-electric-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-electric-500 sm:flex"
