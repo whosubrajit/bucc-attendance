@@ -57,7 +57,7 @@ export function LiveBoard({ global, canExport }: { global: boolean, canExport?: 
     refreshInterval: 30000, // polling fallback under SSE
     keepPreviousData: true,
   });
-  
+
   const { data: sessionData } = useSWR<{ sessions: { id: string; name: string }[] }>("/api/sessions");
 
   const counts = data?.counts ?? {};
@@ -70,9 +70,9 @@ export function LiveBoard({ global, canExport }: { global: boolean, canExport?: 
     <div className="space-y-4">
       {/* Counters */}
       <div className="grid grid-cols-3 gap-3">
-        <Counter label="🟢 Present" value={present} className="text-emerald-600 dark:text-emerald-400" />
-        <Counter label="🟡 Pending" value={pending} className="text-amber-600 dark:text-amber-400" />
-        <Counter label="🔴 Left" value={left} className="text-rose-600 dark:text-rose-400" />
+        <Counter label="Present" value={present} className="text-emerald-600 dark:text-emerald-400" />
+        <Counter label="Pending" value={pending} className="text-amber-600 dark:text-amber-400" />
+        <Counter label="Left" value={left} className="text-rose-600 dark:text-rose-400" />
       </div>
 
       {/* Per-department breakdown (global viewers only) */}
@@ -185,9 +185,9 @@ export function LiveBoard({ global, canExport }: { global: boolean, canExport?: 
                     {global && (
                       <td className="px-4 py-2.5">
                         {(r.status === "PRESENT" || r.status === "PENDING_SIGNOUT") && (
-                          <Button 
-                            variant="secondary" 
-                            size="sm" 
+                          <Button
+                            variant="secondary"
+                            size="sm"
                             onClick={async () => {
                               if (!confirm(`Force sign out ${r.member.name}?`)) return;
                               try {
