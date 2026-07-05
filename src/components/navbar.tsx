@@ -5,12 +5,13 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useSession, signOut } from "next-auth/react";
 import { useTheme } from "next-themes";
-import { LogOut, Moon, Sun, QrCode } from "lucide-react";
+import { LogOut, Moon, Sun, QrCode, HelpCircle, LayoutDashboard } from "lucide-react";
 import { useState } from "react";
 import { NotificationBell } from "@/components/notification-bell";
 import { cn } from "@/lib/utils";
 
 const NAV = [
+  { href: "/dashboard", label: "Dashboard", roles: ["MEMBER", "EB", "SE", "HR_EB", "HR_SE", "GB"] },
   { href: "/dashboard/live", label: "Live Board", roles: ["EB", "SE", "HR_EB", "HR_SE", "GB"] },
   { href: "/dashboard/approvals", label: "Approvals", roles: ["EB", "SE", "HR_EB", "HR_SE", "GB"] },
   { href: "/dashboard/analytics", label: "Analytics", roles: ["EB", "SE", "HR_EB", "HR_SE", "GB"] },
@@ -106,8 +107,15 @@ export function Navbar() {
                         onClick={() => setIsProfileOpen(false)}
                         className="flex w-full items-center rounded-md px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-200 dark:hover:bg-navy-800 dark:hover:text-white"
                       >
-                        Dashboard
+                        <LayoutDashboard className="mr-2 h-4 w-4" aria-hidden /> Dashboard
                       </Link>
+                      <a 
+                        href="mailto:hr@buccbd.org?subject=BUCC%20Attendance%20Support" 
+                        onClick={() => setIsProfileOpen(false)}
+                        className="flex w-full items-center rounded-md px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-200 dark:hover:bg-navy-800 dark:hover:text-white"
+                      >
+                        <HelpCircle className="mr-2 h-4 w-4" aria-hidden /> Help & Support
+                      </a>
                       <button
                         onClick={() => signOut({ callbackUrl: "/" })}
                         className="flex w-full items-center rounded-md px-3 py-2 text-sm text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"

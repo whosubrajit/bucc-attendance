@@ -18,7 +18,7 @@ export function AnnouncementBanner() {
           {data.announcements.map((a) => (
             <p key={a.id}>
               <span className="font-medium">{a.message}</span>{" "}
-              <span className="text-xs opacity-70">— {a.createdBy.name}</span>
+              <span className="text-xs opacity-70">— BUCC</span>
             </p>
           ))}
         </div>

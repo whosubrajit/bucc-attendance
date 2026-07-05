@@ -1,5 +1,6 @@
 import { requirePageMember } from "@/lib/page-guards";
 import { Navbar } from "@/components/navbar";
+import { AnnouncementBanner } from "@/components/announcement-banner";
 import { AttendClient } from "@/components/attend-client";
 
 export const dynamic = "force-dynamic";
@@ -9,6 +10,7 @@ export default async function AttendPage() {
   return (
     <>
       <Navbar />
+      <AnnouncementBanner />
       <main className="mx-auto max-w-lg px-4 py-6">
         <h1 className="text-xl font-bold">Mark Attendance</h1>
         <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">

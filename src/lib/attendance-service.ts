@@ -114,7 +114,7 @@ export async function requestSignout(member: Member, sessionId: string) {
     }),
   ]);
 
-  // Notify HR_EB + HR_SE in realtime + email (per spec).
+  // Notify HR_EB + HR_SE in realtime.
   const approvers = await prisma.member.findMany({
     where: { role: { in: SIGNOUT_NOTIFY_ROLES }, isActive: true },
     select: { id: true },
@@ -124,10 +124,6 @@ export async function requestSignout(member: Member, sessionId: string) {
     type: "SIGNOUT_REQUEST",
     message: `${member.name} (${member.department}) requested sign-out from "${attendance.session.name}"`,
     metadata: { signoutRequestId: request.id, attendanceId: attendance.id },
-    email: {
-      subject: "BUCC: Sign-out approval needed",
-      html: `<p><b>${member.name}</b> (${member.department}, ${member.designation}) requested sign-out from <b>${attendance.session.name}</b>.</p><p>Please review it in the approvals panel.</p>`,
-    },
   });
   publish("approvers", "signout_requested", {
     memberName: member.name,
