@@ -69,7 +69,7 @@ export function Navbar() {
           </button>
           {session?.user?.image && (
             <div className="relative">
-              <button 
+              <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
                 className="flex items-center justify-center rounded-full ring-2 ring-transparent transition-all hover:ring-electric-500 focus:outline-none focus:ring-electric-500"
                 aria-label="Profile menu"
@@ -83,11 +83,11 @@ export function Navbar() {
                   className="rounded-full"
                 />
               </button>
-              
+
               {isProfileOpen && (
                 <>
-                  <div 
-                    className="fixed inset-0 z-40" 
+                  <div
+                    className="fixed inset-0 z-40"
                     onClick={() => setIsProfileOpen(false)}
                     aria-hidden="true"
                   />
@@ -100,22 +100,22 @@ export function Navbar() {
                         {session.user.email}
                       </p>
                     </div>
-                    
+
                     <div className="p-1.5">
-                      <Link 
-                        href="/dashboard" 
+                      <Link
+                        href="/dashboard"
                         onClick={() => setIsProfileOpen(false)}
                         className="flex w-full items-center rounded-md px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-200 dark:hover:bg-navy-800 dark:hover:text-white"
                       >
                         <LayoutDashboard className="mr-2 h-4 w-4" aria-hidden /> Dashboard
                       </Link>
-                      <a 
-                        href="mailto:hr@buccbd.org?subject=BUCC%20Attendance%20Support" 
+                      <Link
+                        href="/dashboard/support"
                         onClick={() => setIsProfileOpen(false)}
                         className="flex w-full items-center rounded-md px-3 py-2 text-sm text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 dark:text-slate-200 dark:hover:bg-navy-800 dark:hover:text-white"
                       >
                         <HelpCircle className="mr-2 h-4 w-4" aria-hidden /> Help & Support
-                      </a>
+                      </Link>
                       <button
                         onClick={() => signOut({ callbackUrl: "/" })}
                         className="flex w-full items-center rounded-md px-3 py-2 text-sm text-rose-600 transition-colors hover:bg-rose-50 hover:text-rose-700 dark:text-rose-400 dark:hover:bg-rose-500/10 dark:hover:text-rose-300"
