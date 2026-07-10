@@ -152,6 +152,7 @@ function SessionsTab() {
               </p>
             </div>
             <div className="flex items-center gap-3">
+              <a href={`/api/export/blank-sheet?sessionId=${s.id}`} className="text-sm font-medium text-electric-600 hover:underline">Blank Sheet</a>
               <a href={`/api/export?sessionId=${s.id}`} className="text-sm font-medium text-electric-600 hover:underline">Export CSV</a>
               <Button variant="danger" size="sm" onClick={() => deleteSession(s.id, s.name)}>Delete</Button>
             </div>
