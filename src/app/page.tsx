@@ -23,7 +23,7 @@ export default async function LandingPage({
   const error = searchParams.error ? (ERROR_MESSAGES[searchParams.error] ?? "Sign-in failed. Please try again.") : null;
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-navy-900 via-navy-800 to-navy-950 px-4 text-white">
+    <main className="relative flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-navy-900 via-navy-800 to-navy-950 px-4 text-white">
       <div className="w-full max-w-md text-center">
         <div className="mx-auto mb-6 inline-flex rounded-2xl bg-electric-600/20 p-4 ring-1 ring-electric-500/40">
           <Users className="h-10 w-10 text-electric-400" aria-hidden />
@@ -68,6 +68,10 @@ export default async function LandingPage({
           Restricted to registered BUCC members with a @g.bracu.ac.bd account
         </p>
       </div>
+
+      <p className="absolute bottom-6 text-center text-xs text-navy-100/40">
+        Made with late night crashouts by Subrajit
+      </p>
     </main>
   );
 }

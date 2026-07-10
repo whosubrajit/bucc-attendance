@@ -5,7 +5,7 @@ import path from "path";
 const prisma = new PrismaClient();
 
 async function main() {
-  const filePath = path.join(process.cwd(), "All_Department_Members_Spring26.xlsx");
+  const filePath = path.join(process.cwd(), "All_Department_Members_Spring26 - All_Members.csv");
   const workbook = xlsx.readFile(filePath);
   const sheetName = workbook.SheetNames[0];
   const sheet = workbook.Sheets[sheetName];
@@ -27,25 +27,29 @@ async function main() {
       continue;
     }
 
-    await prisma.centralMember.upsert({
-      where: { email },
-      update: {
-        name,
-        studentId,
-        department: department || "Unknown",
-        designation: designation || "Executive",
-        isActive: true,
-      },
-      create: {
-        email,
-        name,
-        studentId,
-        department: department || "Unknown",
-        designation: designation || "Executive",
-        isActive: true,
-      },
-    });
-    count++;
+    try {
+      await prisma.centralMember.upsert({
+        where: { studentId },
+        update: {
+          email,
+          name,
+          department: department || "Unknown",
+          designation: designation || "Executive",
+          isActive: true,
+        },
+        create: {
+          email,
+          name,
+          studentId,
+          department: department || "Unknown",
+          designation: designation || "Executive",
+          isActive: true,
+        },
+      });
+      count++;
+    } catch (error: any) {
+      console.warn(`[WARNING] Skipping duplicate/conflict for Student ID ${studentId}, Email ${email}`);
+    }
   }
 
   console.log(`Successfully seeded ${count} executives/members into CentralMember table.`);
