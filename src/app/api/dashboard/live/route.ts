@@ -45,9 +45,6 @@ export async function GET(req: NextRequest) {
     const [rows, total, byStatus, byDepartment] = await Promise.all([
       prisma.attendance.findMany({
         where,
-        orderBy: { checkInAt: "desc" },
-        skip: (page - 1) * pageSize,
-        take: pageSize,
         include: {
           member: { select: { name: true, department: true, designation: true, profilePhotoUrl: true } },
           session: { select: { name: true } },
@@ -84,9 +81,33 @@ export async function GET(req: NextRequest) {
         : Promise.resolve([]),
     ]);
 
+    let finalRows = rows;
+    const hierarchy: Record<string, number> = {
+      "Governing Body": 1,
+      "President": 1,
+      "Vice President": 1,
+      "General Secretary": 1,
+      "Treasurer": 1,
+      "Director": 2,
+      "Assistant Director": 3,
+      "Senior Executive": 4,
+      "Executive": 5,
+      "General Member": 6,
+    };
+
+    finalRows.sort((a, b) => {
+      if (a.member.department !== b.member.department) return a.member.department.localeCompare(b.member.department);
+      const rankA = hierarchy[a.member.designation] || 99;
+      const rankB = hierarchy[b.member.designation] || 99;
+      if (rankA !== rankB) return rankA - rankB;
+      return a.member.name.localeCompare(b.member.name);
+    });
+
+    const paginatedRows = finalRows.slice((page - 1) * pageSize, page * pageSize);
+
     return NextResponse.json({
       scope: department ?? "ALL",
-      rows,
+      rows: paginatedRows,
       total,
       page,
       pageSize,
