@@ -35,6 +35,7 @@ const createSchema = z.object({
   startsAt: z.string().datetime(),
   endsAt: z.string().datetime(),
   recurrence: z.enum(["NONE", "WEEKLY", "MONTHLY"]).default("NONE"),
+  requiresFeedback: z.boolean().default(false),
 });
 
 export async function POST(req: NextRequest) {
@@ -47,7 +48,11 @@ export async function POST(req: NextRequest) {
     }
     const session = await prisma.session.create({
       data: {
-        ...body,
+        name: body.name,
+        description: body.description,
+        venue: body.venue,
+        recurrence: body.recurrence,
+        requiresFeedback: body.requiresFeedback,
         startsAt: new Date(body.startsAt),
         endsAt: new Date(body.endsAt),
         qrSecret: randomBytes(24).toString("hex"),

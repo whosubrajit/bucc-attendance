@@ -21,9 +21,13 @@ export async function GET(req: NextRequest) {
     const department = can(viewer.role, "live:all") ? undefined : viewer.department;
 
     let sessionName = "Attendance Export";
+    let requiresFeedback = false;
     if (sessionId) {
       const session = await prisma.session.findUnique({ where: { id: sessionId } });
-      if (session) sessionName = session.name;
+      if (session) {
+        sessionName = session.name;
+        requiresFeedback = session.requiresFeedback;
+      }
     }
 
     const rows = await prisma.attendance.findMany({
@@ -64,11 +68,13 @@ export async function GET(req: NextRequest) {
 
     const lines = [];
     
-    // Title pushed to the middle using commas (3 commas means it's in the 4th column of a 7 column sheet)
-    lines.push(`,,,Attendance for ${sessionName},,,`);
+    // Title pushed to the middle using commas
+    lines.push(requiresFeedback ? `,,,,Attendance for ${sessionName},,,,` : `,,,Attendance for ${sessionName},,,`);
     
     // Headers
-    lines.push("Name,Student ID,BUCC Department,BUCC Designation,Check in,Check out,Forced Check");
+    const headers = ["Name", "Student ID", "BUCC Department", "BUCC Designation", "Check in", "Check out", "Forced Check"];
+    if (requiresFeedback) headers.push("Feedback/Queries");
+    lines.push(headers.join(","));
 
     for (const r of rows) {
       const checkInTime = r.checkInAt ? r.checkInAt.toLocaleTimeString('en-US', { timeZone: 'Asia/Dhaka', hour: '2-digit', minute: '2-digit' }) : "";
@@ -79,17 +85,18 @@ export async function GET(req: NextRequest) {
         : "";
       const forcedText = isForcedOut ? "forced" : "";
 
-      lines.push(
-        [
-          r.member.name,
-          r.member.studentId,
-          r.member.department,
-          r.member.designation,
-          checkInTime,
-          checkOutTime,
-          forcedText
-        ].map(csvEscape).join(",")
-      );
+      const cols = [
+        r.member.name,
+        r.member.studentId,
+        r.member.department,
+        r.member.designation,
+        checkInTime,
+        checkOutTime,
+        forcedText
+      ];
+      if (requiresFeedback) cols.push(r.notes ?? "");
+
+      lines.push(cols.map(csvEscape).join(","));
     }
 
     await prisma.auditLog.create({

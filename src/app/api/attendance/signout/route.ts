@@ -8,7 +8,7 @@ import { requireMember, handleApiError, assertSameOrigin } from "@/lib/api-guard
 import { rateLimit, ATTENDANCE_LIMIT } from "@/lib/rate-limit";
 import { requestSignout } from "@/lib/attendance-service";
 
-const bodySchema = z.object({ sessionId: z.string().min(1) });
+const bodySchema = z.object({ sessionId: z.string().min(1), notes: z.string().optional() });
 
 export async function POST(req: NextRequest) {
   try {
@@ -23,8 +23,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { sessionId } = bodySchema.parse(await req.json());
-    const request = await requestSignout(member, sessionId);
+    const { sessionId, notes } = bodySchema.parse(await req.json());
+    const request = await requestSignout(member, sessionId, notes);
     if (!request) {
       return NextResponse.json({ message: "Signed out successfully." });
     }

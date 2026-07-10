@@ -70,6 +70,7 @@ model Session {
   /// Per-session HMAC key component; rotating QR tokens are derived from it.
   qrSecret    String    @map("qr_secret")
   isActive    Boolean   @default(true) @map("is_active")
+  requiresFeedback Boolean @default(false) @map("requires_feedback")
   /// iCal-style hint for recurring sessions: NONE | WEEKLY | MONTHLY
   recurrence  String    @default("NONE")
   createdById String    @map("created_by")

@@ -20,7 +20,7 @@ export async function GET() {
         endsAt: { gt: now },
       },
       orderBy: { startsAt: "asc" },
-      select: { id: true, name: true, venue: true, startsAt: true, endsAt: true },
+      select: { id: true, name: true, venue: true, startsAt: true, endsAt: true, requiresFeedback: true },
     });
     const attendance = await prisma.attendance.findMany({
       where: { memberId: member.id, sessionId: { in: sessions.map((s) => s.id) } },

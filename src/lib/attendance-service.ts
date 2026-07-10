@@ -71,11 +71,11 @@ export async function checkIn(
 
 // ── Sign-out request ──────────────────────────────────────────────────
 
-export async function requestSignout(member: Member, sessionId: string) {
+export async function requestSignout(member: Member, sessionId: string, notes?: string) {
   const attendance = await prisma.attendance.findFirst({
     where: { memberId: member.id, sessionId },
     orderBy: { checkInAt: "desc" },
-    include: { session: { select: { name: true } } },
+    include: { session: { select: { name: true, requiresFeedback: true } } },
   });
   if (!attendance) throw new ApiError(404, "You have not checked in to this session");
   if (attendance.status === AttendanceStatus.PENDING_SIGNOUT) {
@@ -83,6 +83,12 @@ export async function requestSignout(member: Member, sessionId: string) {
   }
   if (attendance.status === AttendanceStatus.LEFT) {
     throw new ApiError(409, "You have already signed out of this session");
+  }
+
+  // Validate feedback requirement for non-admin roles
+  const needsFeedback = attendance.session.requiresFeedback && !["EB", "HR_EB", "GB"].includes(member.role);
+  if (needsFeedback && (!notes || !notes.trim())) {
+    throw new ApiError(400, "Feedback is required to sign out of this session");
   }
 
   const now = new Date();
@@ -97,6 +103,7 @@ export async function requestSignout(member: Member, sessionId: string) {
         checkOutRequestedAt: now,
         checkOutApprovedAt: now,
         durationMinutes: duration,
+        notes: notes?.trim() || null,
       },
     });
     publish(`member:${member.id}`, "signout_approved");
@@ -110,7 +117,11 @@ export async function requestSignout(member: Member, sessionId: string) {
     }),
     prisma.attendance.update({
       where: { id: attendance.id },
-      data: { status: AttendanceStatus.PENDING_SIGNOUT, checkOutRequestedAt: now },
+      data: { 
+        status: AttendanceStatus.PENDING_SIGNOUT, 
+        checkOutRequestedAt: now,
+        notes: notes?.trim() || null,
+      },
     }),
   ]);
 

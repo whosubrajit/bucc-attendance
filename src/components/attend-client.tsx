@@ -22,6 +22,7 @@ type SessionRow = {
   venue: string | null;
   startsAt: string;
   endsAt: string;
+  requiresFeedback: boolean;
   attendance: { status: string; checkInAt: string } | null;
 };
 
@@ -51,6 +52,8 @@ export function AttendClient({ member }: { member: any }) {
   const [scanningSession, setScanningSession] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
   const [showEventForm, setShowEventForm] = useState(false);
+  const [signingOutSession, setSigningOutSession] = useState<string | null>(null);
+  const [feedback, setFeedback] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   useRealtime((event) => {
     if (event.channel === `member:${member.id}` && event.type === "check_in") {
@@ -108,11 +111,13 @@ export function AttendClient({ member }: { member: any }) {
     }
   }
 
-  async function signOut(sessionId: string) {
+  async function signOut(sessionId: string, notes?: string) {
     setBusy(sessionId);
     try {
-      const result = await post("/api/attendance/signout", { sessionId });
+      const result = await post("/api/attendance/signout", { sessionId, notes });
       toast("info", result.message);
+      setSigningOutSession(null);
+      setFeedback("");
       void mutate();
     } catch (err) {
       toast("error", err instanceof Error ? err.message : "Sign-out failed");
@@ -132,6 +137,7 @@ export function AttendClient({ member }: { member: any }) {
         startsAt: new Date(fd.get("startsAt") as string).toISOString(),
         endsAt: new Date(fd.get("endsAt") as string).toISOString(),
         recurrence: fd.get("recurrence"),
+        requiresFeedback: fd.get("requiresFeedback") === "on",
       });
       toast("success", "Event created!");
       setShowEventForm(false);
@@ -193,7 +199,7 @@ export function AttendClient({ member }: { member: any }) {
       </div>
       
       {showEventForm && (
-        <form onSubmit={createEvent} className="card grid gap-3 p-4 sm:grid-cols-2">
+    <form onSubmit={createEvent} className="card grid gap-3 p-4 sm:grid-cols-2">
           <label className="text-sm sm:col-span-2">
             Event Name
             <input name="name" required minLength={3} className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm dark:border-navy-700 dark:bg-navy-900 mt-1" placeholder="e.g. Workshop" />
@@ -217,6 +223,10 @@ export function AttendClient({ member }: { member: any }) {
           <label className="text-sm">
             Ends
             <input name="endsAt" required type="datetime-local" className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm dark:border-navy-700 dark:bg-navy-900 mt-1" />
+          </label>
+          <label className="text-sm flex items-center gap-2 sm:col-span-2 mt-2">
+            <input type="checkbox" name="requiresFeedback" />
+            Need Feedback/Queries?
           </label>
           <Button type="submit" loading={busy === "create-event"} className="sm:col-span-2 mt-2">Create Event</Button>
         </form>
@@ -275,14 +285,46 @@ export function AttendClient({ member }: { member: any }) {
               )}
 
               {s.attendance?.status === "PRESENT" && (
-                <Button
-                  variant="danger"
-                  className="w-full"
-                  loading={busy === s.id}
-                  onClick={() => signOut(s.id)}
-                >
-                  <LogOutIcon className="h-4 w-4" aria-hidden /> Sign Out from Volunteering
-                </Button>
+                signingOutSession === s.id ? (
+                  <div className="space-y-2 border-t pt-3 mt-3 border-slate-100 dark:border-navy-800">
+                    <label className="text-sm font-semibold">Feedback / Queries</label>
+                    <textarea
+                      required
+                      value={feedback}
+                      onChange={(e) => setFeedback(e.target.value)}
+                      className="w-full rounded-xl border border-slate-300 p-3 text-sm dark:border-navy-700 dark:bg-navy-900"
+                      rows={3}
+                      placeholder='Please avoid writing "N/A", "OK", "No" or anything of this sort. Write any criticism, or ask any queries you might have.'
+                    />
+                    <div className="flex gap-2">
+                      <Button variant="secondary" className="flex-1" onClick={() => { setSigningOutSession(null); setFeedback(""); }}>Cancel</Button>
+                      <Button 
+                        variant="danger" 
+                        className="flex-1" 
+                        disabled={!feedback.trim()} 
+                        loading={busy === s.id} 
+                        onClick={() => signOut(s.id, feedback)}
+                      >
+                        Submit Sign Out
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <Button
+                    variant="danger"
+                    className="w-full"
+                    loading={busy === s.id}
+                    onClick={() => {
+                      if (s.requiresFeedback && !["EB", "HR_EB", "GB"].includes(member.role)) {
+                        setSigningOutSession(s.id);
+                      } else {
+                        signOut(s.id);
+                      }
+                    }}
+                  >
+                    <LogOutIcon className="h-4 w-4" aria-hidden /> Sign Out from Volunteering
+                  </Button>
+                )
               )}
               
               {s.attendance?.status === "PENDING_SIGNOUT" && (

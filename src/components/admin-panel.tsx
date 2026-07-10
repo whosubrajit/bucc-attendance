@@ -67,7 +67,7 @@ type SessionRow = {
 function SessionsTab() {
   const { data, mutate } = useSWR<{ sessions: SessionRow[] }>("/api/sessions");
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: "", venue: "", startsAt: "", endsAt: "", recurrence: "NONE" });
+  const [form, setForm] = useState({ name: "", venue: "", startsAt: "", endsAt: "", recurrence: "NONE", requiresFeedback: false });
   const [saving, setSaving] = useState(false);
 
   async function createSession(e: React.FormEvent) {
@@ -80,10 +80,11 @@ function SessionsTab() {
         startsAt: new Date(form.startsAt).toISOString(),
         endsAt: new Date(form.endsAt).toISOString(),
         recurrence: form.recurrence,
+        requiresFeedback: form.requiresFeedback,
       });
       toast("success", "Session created");
       setShowForm(false);
-      setForm({ name: "", venue: "", startsAt: "", endsAt: "", recurrence: "NONE" });
+      setForm({ name: "", venue: "", startsAt: "", endsAt: "", recurrence: "NONE", requiresFeedback: false });
       void mutate();
     } catch (err) {
       toast("error", err instanceof Error ? err.message : "Failed");
@@ -134,6 +135,10 @@ function SessionsTab() {
           <label className="text-sm">
             Ends
             <input required type="datetime-local" className={inputCls} value={form.endsAt} onChange={(e) => setForm({ ...form, endsAt: e.target.value })} />
+          </label>
+          <label className="text-sm flex items-center gap-2 sm:col-span-2 mt-2">
+            <input type="checkbox" checked={form.requiresFeedback} onChange={(e) => setForm({ ...form, requiresFeedback: e.target.checked })} />
+            Need Feedback/Queries?
           </label>
           <Button type="submit" loading={saving} className="sm:col-span-2">Create session</Button>
         </form>
