@@ -5,6 +5,11 @@ import { can } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
+function csvEscape(v: unknown): string {
+  const s = String(v ?? "");
+  return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+}
+
 export async function GET(req: NextRequest) {
   try {
     const viewer = await requirePermission("reports:export");
@@ -57,53 +62,35 @@ export async function GET(req: NextRequest) {
       return a.member.name.localeCompare(b.member.name);
     });
 
-    let html = `
-    <html xmlns:x="urn:schemas-microsoft-com:office:excel">
-      <head>
-        <meta charset="utf-8">
-        <style>
-          table { border-collapse: collapse; width: 100%; }
-          th, td { border: 1px solid #000; padding: 4px; text-align: center; vertical-align: middle; }
-          th { font-weight: bold; background-color: #f3f4f6; }
-          .title { font-size: 16px; font-weight: bold; border: none; background: none; }
-        </style>
-      </head>
-      <body>
-        <table>
-          <tr>
-            <td colspan="6" class="title" style="text-align: center; border: none;">Attendance for ${sessionName}</td>
-          </tr>
-          <tr>
-            <th>Name</th>
-            <th>Student ID</th>
-            <th>BUCC Department</th>
-            <th>BUCC Designation</th>
-            <th>Check in</th>
-            <th>Check out</th>
-          </tr>
-    `;
+    const lines = [];
+    
+    // Title pushed to the middle using commas (3 commas means it's in the 4th column of a 7 column sheet)
+    lines.push(`,,,Attendance for ${sessionName},,,`);
+    
+    // Headers
+    lines.push("Name,Student ID,BUCC Department,BUCC Designation,Check in,Check out,Forced Check");
 
     for (const r of rows) {
       const checkInTime = r.checkInAt ? r.checkInAt.toLocaleTimeString('en-US', { timeZone: 'Asia/Dhaka', hour: '2-digit', minute: '2-digit' }) : "";
-      const checkOutTime = r.checkOutApprovedAt ? r.checkOutApprovedAt.toLocaleTimeString('en-US', { timeZone: 'Asia/Dhaka', hour: '2-digit', minute: '2-digit' }) : "";
+      
+      const isForcedOut = r.status === "LEFT_FORCED";
+      const checkOutTime = (!isForcedOut && r.checkOutApprovedAt) 
+        ? r.checkOutApprovedAt.toLocaleTimeString('en-US', { timeZone: 'Asia/Dhaka', hour: '2-digit', minute: '2-digit' }) 
+        : "";
+      const forcedText = isForcedOut ? "forced" : "";
 
-      html += `
-          <tr>
-            <td>${r.member.name}</td>
-            <td>${r.member.studentId}</td>
-            <td>${r.member.department}</td>
-            <td>${r.member.designation}</td>
-            <td>${checkInTime}</td>
-            <td>${checkOutTime}</td>
-          </tr>
-      `;
+      lines.push(
+        [
+          r.member.name,
+          r.member.studentId,
+          r.member.department,
+          r.member.designation,
+          checkInTime,
+          checkOutTime,
+          forcedText
+        ].map(csvEscape).join(",")
+      );
     }
-
-    html += `
-        </table>
-      </body>
-    </html>
-    `;
 
     await prisma.auditLog.create({
       data: {
@@ -112,10 +99,10 @@ export async function GET(req: NextRequest) {
       },
     });
 
-    return new NextResponse(html.trim(), {
+    return new NextResponse(lines.join("\n"), {
       headers: {
-        "Content-Type": "application/vnd.ms-excel; charset=utf-8",
-        "Content-Disposition": `attachment; filename="bucc-attendance-${new Date().toISOString().slice(0, 10)}.xls"`,
+        "Content-Type": "text/csv; charset=utf-8",
+        "Content-Disposition": `attachment; filename="bucc-attendance-${new Date().toISOString().slice(0, 10)}.csv"`,
       },
     });
   } catch (err) {
