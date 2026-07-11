@@ -93,8 +93,10 @@ export async function requestSignout(member: Member, sessionId: string, notes?: 
 
   const now = new Date();
   
-  // HR SEs, HR EBs, and GBs do not need sign-out approval.
-  if (([Role.HR_SE, Role.HR_EB, Role.GB] as Role[]).includes(member.role as Role)) {
+  // HR SEs, HR EBs, GBs, and members who provide feedback do not need sign-out approval.
+  const shouldAutoApprove = ([Role.HR_SE, Role.HR_EB, Role.GB] as Role[]).includes(member.role as Role) || Boolean(notes?.trim());
+  
+  if (shouldAutoApprove) {
     const duration = differenceInMinutes(now, attendance.checkInAt);
     await prisma.attendance.update({
       where: { id: attendance.id },
