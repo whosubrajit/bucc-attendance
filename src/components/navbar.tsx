@@ -13,7 +13,7 @@ import { cn } from "@/lib/utils";
 const NAV = [
   { href: "/dashboard", label: "Dashboard", roles: ["MEMBER", "EB", "SE", "HR_EB", "HR_SE", "GB"] },
   { href: "/dashboard/live", label: "Live Board", roles: ["EB", "SE", "HR_EB", "HR_SE", "GB"] },
-  { href: "/dashboard/approvals", label: "Approvals", roles: ["EB", "SE", "HR_EB", "HR_SE", "GB"] },
+  { href: "/dashboard/approvals", label: "Approvals", roles: ["EB", "HR_EB", "HR_SE", "GB"] },
   { href: "/dashboard/analytics", label: "Analytics", roles: ["EB", "SE", "HR_EB", "HR_SE", "GB"] },
   { href: "/dashboard/admin", label: "Admin", roles: ["HR_EB", "HR_SE", "GB"] },
 ];
@@ -28,10 +28,9 @@ export function Navbar() {
 
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200 bg-white/80 backdrop-blur dark:border-navy-800 dark:bg-navy-950/80">
-      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-2 px-4">
-        <Link href="/" className="flex shrink-0 items-center gap-2 font-bold text-navy-800 dark:text-white">
-          <span className="rounded-lg bg-navy-800 px-2 py-1 text-xs text-white dark:bg-electric-600">BUCC</span>
-          <span className="hidden sm:inline">Attendance</span>
+      <div className="mx-auto flex h-20 max-w-6xl items-center justify-between gap-2 px-4">
+        <Link href="/" className="flex shrink-0 items-center gap-2">
+          <img src="/bucc-logo.png" alt="BUCC Attendance" className="h-14 w-auto object-contain sm:h-16 drop-shadow-sm" />
         </Link>
 
         <nav className="flex min-w-0 flex-1 items-center gap-1 overflow-x-auto text-sm" aria-label="Main">
@@ -67,21 +66,27 @@ export function Navbar() {
             <Sun className="h-5 w-5 dark:hidden" aria-hidden />
             <Moon className="hidden h-5 w-5 dark:block" aria-hidden />
           </button>
-          {session?.user?.image && (
+          {session?.user && (
             <div className="relative">
               <button
                 onClick={() => setIsProfileOpen(!isProfileOpen)}
-                className="flex items-center justify-center rounded-full ring-2 ring-transparent transition-all hover:ring-electric-500 focus:outline-none focus:ring-electric-500"
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-slate-200 ring-2 ring-transparent transition-all hover:ring-electric-500 focus:outline-none focus:ring-electric-500 dark:bg-navy-800"
                 aria-label="Profile menu"
                 aria-expanded={isProfileOpen}
               >
-                <Image
-                  src={session.user.image}
-                  alt={session.user.name ?? "Profile"}
-                  width={32}
-                  height={32}
-                  className="rounded-full"
-                />
+                {session.user.image ? (
+                  <Image
+                    src={session.user.image}
+                    alt={session.user.name ?? "Profile"}
+                    width={32}
+                    height={32}
+                    className="rounded-full"
+                  />
+                ) : (
+                  <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                    {session.user.name ? session.user.name.charAt(0).toUpperCase() : "U"}
+                  </span>
+                )}
               </button>
 
               {isProfileOpen && (

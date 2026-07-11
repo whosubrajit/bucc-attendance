@@ -9,7 +9,7 @@ export function GoogleSignInButton() {
     <button
       onClick={() => {
         setLoading(true);
-        void signIn("google", { callbackUrl: "/attend" });
+        void signIn("google", { callbackUrl: "/" });
       }}
       disabled={loading}
       className="flex h-12 w-full items-center justify-center gap-3 rounded-xl bg-white font-semibold text-slate-800 transition-colors hover:bg-slate-100 disabled:opacity-60"
