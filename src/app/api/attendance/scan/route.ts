@@ -11,7 +11,7 @@ import { prisma } from "@/lib/prisma";
 import { requireMember, handleApiError, assertSameOrigin, ApiError } from "@/lib/api-guards";
 import { verifyQrToken } from "@/lib/qr";
 import { rateLimit, ATTENDANCE_LIMIT } from "@/lib/rate-limit";
-import { checkIn, requestSignout } from "@/lib/attendance-service";
+import { checkIn } from "@/lib/attendance-service";
 import { getClientIp, getDeviceType } from "@/lib/utils";
 
 const bodySchema = z.object({ token: z.string().min(10).max(500), sessionId: z.string().cuid() });
@@ -60,16 +60,9 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       // Second scan → switch to sign-out request
       if (err instanceof ApiError && err.message === "ALREADY_CHECKED_IN") {
-        const request = await requestSignout(targetMember, sessionId);
-        if (!request) {
-          return NextResponse.json({
-            action: "signout_approved",
-            message: `${targetMember.name} signed out successfully.`,
-          });
-        }
         return NextResponse.json({
-          action: "signout_requested",
-          message: `${targetMember.name} sign-out requested.`,
+          action: "already_checked_in",
+          message: `${targetMember.name} is already checked in.`,
         });
       }
       throw err;
