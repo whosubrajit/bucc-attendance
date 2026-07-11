@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
                 SELECT m.department,
                        COUNT(*) FILTER (WHERE a.status = 'PRESENT')          AS present,
                        COUNT(*) FILTER (WHERE a.status = 'PENDING_SIGNOUT')  AS pending,
-                       COUNT(*) FILTER (WHERE a.status = 'LEFT')             AS "left"
+                       COUNT(*) FILTER (WHERE a.status IN ('LEFT', 'LEFT_FORCED')) AS "left"
                 FROM attendance a JOIN members m ON m.id = a.member_id
                 WHERE a.session_id = ${sessionId}
                 GROUP BY m.department ORDER BY m.department`
@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
                 SELECT m.department,
                        COUNT(*) FILTER (WHERE a.status = 'PRESENT')          AS present,
                        COUNT(*) FILTER (WHERE a.status = 'PENDING_SIGNOUT')  AS pending,
-                       COUNT(*) FILTER (WHERE a.status = 'LEFT')             AS "left"
+                       COUNT(*) FILTER (WHERE a.status IN ('LEFT', 'LEFT_FORCED')) AS "left"
                 FROM attendance a JOIN members m ON m.id = a.member_id
                 WHERE a.check_in_at >= ${day} AND a.check_in_at < ${nextDay}
                 GROUP BY m.department ORDER BY m.department`)

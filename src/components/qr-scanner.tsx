@@ -17,7 +17,8 @@ export default function QrScanner({
   onScan: (decoded: string) => void;
   onError?: (message: string) => void;
 }) {
-  const handled = useRef(false);
+  const lastScanned = useRef<string | null>(null);
+  const lastScanTime = useRef<number>(0);
   const onScanRef = useRef(onScan);
   onScanRef.current = onScan;
 
@@ -30,8 +31,12 @@ export default function QrScanner({
         { facingMode: "environment" },
         { fps: 10, qrbox: { width: 240, height: 240 } },
         (decoded) => {
-          if (handled.current) return; // one scan per mount
-          handled.current = true;
+          const now = Date.now();
+          if (lastScanned.current === decoded && now - lastScanTime.current < 4000) {
+            return; // ignore the same QR code if scanned within 4 seconds
+          }
+          lastScanned.current = decoded;
+          lastScanTime.current = now;
           onScanRef.current(decoded);
         },
         () => {
@@ -44,8 +49,16 @@ export default function QrScanner({
 
     return () => {
       mounted = false;
-      // stop() rejects if the camera never started — safe to swallow.
-      scanner.stop().then(() => scanner.clear()).catch(() => {});
+      try {
+        scanner.stop()
+          .then(() => {
+            try { scanner.clear(); } catch (e) {}
+          })
+          .catch(() => {});
+      } catch (e) {
+        // Fallback if stop() throws synchronously
+        try { scanner.clear(); } catch (e) {}
+      }
     };
   }, [onError]);
 

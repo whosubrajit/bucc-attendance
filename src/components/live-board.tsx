@@ -65,7 +65,8 @@ export function LiveBoard({ global, canExport }: { global: boolean, canExport?: 
   const counts = data?.counts ?? {};
   const present = counts.PRESENT ?? 0;
   const pending = counts.PENDING_SIGNOUT ?? 0;
-  const left = counts.LEFT ?? 0;
+  const forcedLeft = counts.LEFT_FORCED ?? 0;
+  const left = (counts.LEFT ?? 0) + forcedLeft;
   const totalPages = data ? Math.max(1, Math.ceil(data.total / data.pageSize)) : 1;
 
   return (
@@ -74,7 +75,12 @@ export function LiveBoard({ global, canExport }: { global: boolean, canExport?: 
       <div className="grid grid-cols-3 gap-3">
         <Counter label="Present" value={present} className="text-emerald-600 dark:text-emerald-400" />
         <Counter label="Pending" value={pending} className="text-amber-600 dark:text-amber-400" />
-        <Counter label="Left" value={left} className="text-rose-600 dark:text-rose-400" />
+        <Counter 
+          label="Left" 
+          value={left} 
+          subtext={forcedLeft > 0 ? `(Forced: ${forcedLeft})` : undefined} 
+          className="text-rose-600 dark:text-rose-400" 
+        />
       </div>
 
       {/* Per-department breakdown (global viewers only) */}
@@ -238,7 +244,7 @@ export function LiveBoard({ global, canExport }: { global: boolean, canExport?: 
   );
 }
 
-function Counter({ label, value, className }: { label: string; value: number; className?: string }) {
+function Counter({ label, value, subtext, className }: { label: string; value: number; subtext?: React.ReactNode; className?: string }) {
   return (
     <div className="card p-4 text-center">
       <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{label}</p>
@@ -250,6 +256,11 @@ function Counter({ label, value, className }: { label: string; value: number; cl
       >
         {value}
       </motion.p>
+      {subtext && (
+        <p className="mt-1 text-[10px] text-slate-400 dark:text-slate-500">
+          {subtext}
+        </p>
+      )}
     </div>
   );
 }
