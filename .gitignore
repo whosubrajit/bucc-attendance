@@ -8,6 +8,6 @@ build
 *.tsbuildinfo
 next-env.d.ts
 .DS_Store
-
+.All_Department_Members_Spring26.xlsx
 # clerk configuration (can include secrets)
 /.clerk/
