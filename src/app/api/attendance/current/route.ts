@@ -16,7 +16,7 @@ export async function GET() {
     const sessions = await prisma.session.findMany({
       where: {
         isActive: true,
-        startsAt: { lt: new Date(now.getTime() + 30 * 60 * 1000) }, // 30-min early grace
+        startsAt: { lt: now },
         endsAt: { gt: now },
       },
       orderBy: { startsAt: "asc" },
@@ -24,7 +24,7 @@ export async function GET() {
     });
     const attendance = await prisma.attendance.findMany({
       where: { memberId: member.id, sessionId: { in: sessions.map((s) => s.id) } },
-      orderBy: { checkInAt: "asc" },
+      orderBy: { checkInAt: "desc" },
       select: { sessionId: true, status: true, checkInAt: true, checkOutRequestedAt: true },
     });
     const byS = new Map(attendance.map((a) => [a.sessionId, a]));

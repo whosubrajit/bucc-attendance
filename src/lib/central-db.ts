@@ -68,9 +68,13 @@ const centralRowSchema = z.object({
   isActive: z.boolean().optional().default(true),
 });
 
+const CENTRAL_DB_TIMEOUT_MS = 10_000;
+
 /** Pull from the external central DB (if configured) and refresh profiles. */
 export async function syncFromCentral(): Promise<{ pulled: number; refreshed: number }> {
   let pulled = 0;
+  let refreshed = 0;
+  let rows: z.infer<typeof centralRowSchema>[] | null = null;
 
   const apiUrl = process.env.CENTRAL_DB_API_URL;
   if (apiUrl) {
@@ -79,37 +83,47 @@ export async function syncFromCentral(): Promise<{ pulled: number; refreshed: nu
         ? { Authorization: `Bearer ${process.env.CENTRAL_DB_API_KEY}` }
         : undefined,
       cache: "no-store",
+      signal: AbortSignal.timeout(CENTRAL_DB_TIMEOUT_MS),
     });
     if (!res.ok) throw new Error(`Central DB API returned ${res.status}`);
-    const rows = z.array(centralRowSchema).parse(await res.json());
-    for (const row of rows) {
-      await prisma.centralMember.upsert({
-        where: { email: row.email.toLowerCase() },
-        update: { ...row, email: row.email.toLowerCase() },
-        create: { ...row, email: row.email.toLowerCase() },
-      });
-      pulled++;
+    rows = z.array(centralRowSchema).parse(await res.json());
+    if (rows.length === 0) {
+      throw new Error("Central DB sync returned no members; existing membership state was preserved");
     }
   }
 
-  // Refresh existing member profiles from the mirror (name/department/
-  // designation/role/active status may have changed after elections).
-  const centrals = await prisma.centralMember.findMany();
-  let refreshed = 0;
-  for (const c of centrals) {
-    const updated = await prisma.member.updateMany({
-      where: { email: c.email },
-      data: {
-        name: c.name,
-        studentId: c.studentId,
-        department: c.department,
-        designation: c.designation,
-        // Role-locked accounts keep the role they were granted by hand.
-        ...(isRoleLocked(c.email) ? {} : { role: deriveRole(c.department, c.designation) }),
-        isActive: c.isActive,
-      },
-    });
-    refreshed += updated.count;
-  }
+  await prisma.$transaction(async (tx) => {
+    if (rows) {
+      const syncedEmails = rows.map((row) => row.email.toLowerCase());
+      for (const row of rows) {
+        await tx.centralMember.upsert({
+          where: { email: row.email.toLowerCase() },
+          update: { ...row, email: row.email.toLowerCase() },
+          create: { ...row, email: row.email.toLowerCase() },
+        });
+      }
+      await tx.centralMember.updateMany({
+        where: { email: { notIn: syncedEmails } },
+        data: { isActive: false },
+      });
+      pulled = rows.length;
+    }
+
+    const centrals = await tx.centralMember.findMany();
+    for (const c of centrals) {
+      const updated = await tx.member.updateMany({
+        where: { email: c.email },
+        data: {
+          name: c.name,
+          studentId: c.studentId,
+          department: c.department,
+          designation: c.designation,
+          ...(isRoleLocked(c.email) ? {} : { role: deriveRole(c.department, c.designation) }),
+          isActive: c.isActive,
+        },
+      });
+      refreshed += updated.count;
+    }
+  });
   return { pulled, refreshed };
 }

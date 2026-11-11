@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission, handleApiError } from "@/lib/api-guards";
+import { requirePermission, handleApiError, assertSameOrigin } from "@/lib/api-guards";
 import { getThemesConfig, deleteThemeVariant } from "@/lib/theme-manager";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +26,7 @@ export async function GET() {
 
 export async function DELETE(req: NextRequest) {
   try {
+    assertSameOrigin(req);
     await requirePermission("sessions:manage");
     const { packId, variantId } = await req.json();
     if (!packId || !variantId) {

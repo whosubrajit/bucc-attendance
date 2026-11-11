@@ -12,7 +12,7 @@ export async function GET(req: NextRequest) {
   try {
     const member = await requireMember();
     const page = Math.max(1, Number(req.nextUrl.searchParams.get("page")) || 1);
-    const pageSize = Math.min(100, Number(req.nextUrl.searchParams.get("pageSize")) || 20);
+    const pageSize = Math.min(100, Math.max(1, Number(req.nextUrl.searchParams.get("pageSize")) || 20));
 
     const [rows, total, agg] = await Promise.all([
       prisma.attendance.findMany({

@@ -158,7 +158,7 @@ export function AttendClient({ member }: { member: any }) {
         venue: fd.get("venue") || undefined,
         startsAt: new Date(fd.get("startsAt") as string).toISOString(),
         endsAt: new Date(fd.get("endsAt") as string).toISOString(),
-        recurrence: fd.get("recurrence"),
+        recurrence: "NONE",
         requiresFeedback: fd.get("requiresFeedback") === "on",
       });
       toast("success", "Event created!");
@@ -230,14 +230,9 @@ export function AttendClient({ member }: { member: any }) {
             Venue
             <input name="venue" className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm dark:border-navy-700 dark:bg-navy-900 mt-1" />
           </label>
-          <label className="text-sm">
-            Recurrence
-            <select name="recurrence" defaultValue="NONE" className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm dark:border-navy-700 dark:bg-navy-900 mt-1">
-              <option value="NONE">One-off</option>
-              <option value="WEEKLY">Weekly</option>
-              <option value="MONTHLY">Monthly</option>
-            </select>
-          </label>
+          <p className="text-sm text-slate-500 sm:col-span-2">
+            Recurring sessions are not available yet. Create each session separately.
+          </p>
           <label className="text-sm">
             Starts
             <input name="startsAt" required type="datetime-local" className="h-10 w-full rounded-xl border border-slate-300 bg-white px-3 text-sm dark:border-navy-700 dark:bg-navy-900 mt-1" />
@@ -258,7 +253,7 @@ export function AttendClient({ member }: { member: any }) {
           <EmptyState
             icon={CalendarX}
             title="No sessions are open right now"
-            hint="Sessions appear here 30 minutes before they start. Check with your department for the schedule."
+            hint="Sessions appear here while they are in progress. Check with your department for the schedule."
           />
         </div>
       ) : (

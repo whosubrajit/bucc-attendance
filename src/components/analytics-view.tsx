@@ -36,7 +36,7 @@ export function AnalyticsView() {
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap gap-2">
-        {[7, 30, 90, "all"].map((d) => (
+        {[7, 30, 90].map((d) => (
           <button
             key={d}
             onClick={() => setDays(d as number | "all")}
@@ -45,7 +45,7 @@ export function AnalyticsView() {
               days === d ? "bg-navy-800 text-white dark:bg-electric-600" : "bg-slate-100 text-slate-600 dark:bg-navy-800 dark:text-slate-300",
             )}
           >
-            {d === "all" ? "Lifetime" : `${d} days`}
+            {`${d} days`}
           </button>
         ))}
       </div>
@@ -120,8 +120,8 @@ export function AnalyticsView() {
                   ) : (
                     <div className="h-7 w-7 rounded-full bg-navy-100 dark:bg-navy-800" />
                   )}
-                  <span className="flex-1 font-medium">{l.member?.name ?? "Unknown"}</span>
-                  <span className="text-slate-500">{l.member?.department}</span>
+                  <span className="min-w-0 flex-1 truncate font-medium">{l.member?.name ?? "Unknown"}</span>
+                  <span className="max-w-[35%] truncate text-slate-500">{l.member?.department}</span>
                   <span className="font-semibold tabular-nums">{formatDuration(l.minutes)}</span>
                 </li>
               ))}

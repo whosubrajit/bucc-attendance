@@ -35,7 +35,7 @@ const createSchema = z.object({
   venue: z.string().max(120).optional(),
   startsAt: z.string().datetime(),
   endsAt: z.string().datetime(),
-  recurrence: z.enum(["NONE", "WEEKLY", "MONTHLY"]).default("NONE"),
+  recurrence: z.literal("NONE").default("NONE"),
   requiresFeedback: z.boolean().default(false),
   isPreEvent: z.boolean().default(false),
 });

@@ -19,19 +19,24 @@ export async function GET(req: NextRequest) {
     const department = seesAll ? undefined : viewer.department;
 
     const daysParam = req.nextUrl.searchParams.get("days");
-    const isLifetime = daysParam === "all";
-    const days = isLifetime ? "all" : Math.min(180, Number(daysParam) || 30);
-    const since = isLifetime ? new Date(0) : new Date(Date.now() - (days as number) * 24 * 60 * 60 * 1000);
+    if (daysParam === "all") {
+      return NextResponse.json({ error: "Lifetime analytics is unavailable; choose a bounded date range" }, { status: 400 });
+    }
+    const parsedDays = daysParam === null ? 30 : Number(daysParam);
+    if (!Number.isInteger(parsedDays) || parsedDays < 1 || parsedDays > 180) {
+      return NextResponse.json({ error: "days must be an integer from 1 to 180" }, { status: 400 });
+    }
+    const days = parsedDays;
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
     // Parameterized fragment — safe composition, no string concatenation.
     const deptSql = department ? Prisma.sql`AND m.department = ${department}` : Prisma.empty;
-    const deptFilter = department ? { member: { department } } : {};
 
     const [byDept, arrivals, leaderboard, memberCounts, attendedCounts, sessionCount] = await Promise.all([
       prisma.$queryRaw<{ department: string; count: bigint }[]>(Prisma.sql`
         SELECT m.department, COUNT(*) AS count
         FROM attendance a JOIN members m ON m.id = a.member_id
-        WHERE a.check_in_at >= ${since} ${deptSql}
+        WHERE a.check_in_at >= ${since} AND m.is_active = true ${deptSql}
         GROUP BY m.department ORDER BY count DESC`),
       // Arrival heatmap: day-of-week × hour buckets
       prisma.$queryRaw<{ dow: number; hour: number; count: bigint }[]>(Prisma.sql`
@@ -39,12 +44,16 @@ export async function GET(req: NextRequest) {
                EXTRACT(HOUR FROM a.check_in_at)::int AS hour,
                COUNT(*) AS count
         FROM attendance a JOIN members m ON m.id = a.member_id
-        WHERE a.check_in_at >= ${since} ${deptSql}
+        WHERE a.check_in_at >= ${since} AND m.is_active = true ${deptSql}
         GROUP BY 1, 2`),
       // Leaderboard: top volunteers by finalized hours
       prisma.attendance.groupBy({
         by: ["memberId"],
-        where: { checkInAt: { gte: since }, durationMinutes: { not: null }, ...deptFilter },
+        where: {
+          checkInAt: { gte: since },
+          durationMinutes: { not: null },
+          member: { isActive: true, ...(department ? { department } : {}) },
+        },
         _sum: { durationMinutes: true },
         orderBy: { _sum: { durationMinutes: "desc" } },
         take: 10,
@@ -57,7 +66,7 @@ export async function GET(req: NextRequest) {
       prisma.$queryRaw<{ department: string; attended: bigint }[]>(Prisma.sql`
         SELECT m.department, COUNT(DISTINCT a.member_id) AS attended
         FROM attendance a JOIN members m ON m.id = a.member_id
-        WHERE a.check_in_at >= ${since} ${deptSql}
+        WHERE a.check_in_at >= ${since} AND m.is_active = true ${deptSql}
         GROUP BY m.department`),
       prisma.session.count({ where: { startsAt: { gte: since } } }),
     ]);

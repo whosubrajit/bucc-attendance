@@ -29,9 +29,22 @@ export async function GET(req: NextRequest) {
 
     if (from || to) {
       where.createdAt = {};
-      if (from) where.createdAt.gte = new Date(from);
+      if (from && !/^\d{4}-\d{2}-\d{2}$/.test(from)) {
+        return NextResponse.json({ error: "Invalid start date" }, { status: 400 });
+      }
+      if (to && !/^\d{4}-\d{2}-\d{2}$/.test(to)) {
+        return NextResponse.json({ error: "Invalid end date" }, { status: 400 });
+      }
+      const fromDate = from ? new Date(`${from}T00:00:00`) : undefined;
+      if (fromDate && Number.isNaN(fromDate.getTime())) {
+        return NextResponse.json({ error: "Invalid start date" }, { status: 400 });
+      }
+      if (fromDate) where.createdAt.gte = fromDate;
       if (to) {
-        const toDate = new Date(to);
+        const toDate = new Date(`${to}T23:59:59.999`);
+        if (Number.isNaN(toDate.getTime())) {
+          return NextResponse.json({ error: "Invalid end date" }, { status: 400 });
+        }
         toDate.setHours(23, 59, 59, 999);
         where.createdAt.lte = toDate;
       }

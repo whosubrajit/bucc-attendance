@@ -60,7 +60,7 @@ export default async function SupportPage() {
             </div>
             <h3 className="text-lg font-semibold text-slate-900 dark:text-white">Still need help?</h3>
             <p className="mt-2 text-sm text-slate-600 dark:text-slate-400 mb-6">
-              If your issue isn't listed here or you need to correct your attendance hours, please contact the Human Resources department.
+              If your issue isn&apos;t listed here or you need to correct your attendance hours, please contact the Human Resources department.
             </p>
             
             <a 

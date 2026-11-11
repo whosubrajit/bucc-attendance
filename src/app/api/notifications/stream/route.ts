@@ -24,6 +24,7 @@ export async function GET() {
     if (can(member.role, "live:department")) channels.add("dashboard");
 
     const encoder = new TextEncoder();
+    let cleanup = () => {};
     const stream = new ReadableStream({
       start(controller) {
         const send = (event: RealtimeEvent) => {
@@ -41,13 +42,16 @@ export async function GET() {
             cleanup();
           }
         }, 25000);
-        const cleanup = () => {
+        cleanup = () => {
           clearInterval(heartbeat);
           bus.off("event", send);
           try { controller.close(); } catch { /* already closed */ }
         };
         bus.on("event", send);
         controller.enqueue(encoder.encode(`: connected\n\n`));
+      },
+      cancel() {
+        cleanup();
       },
     });
 

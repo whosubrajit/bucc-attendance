@@ -1,28 +1,39 @@
-/**
- * Sliding-window rate limiter. In-memory by design: fine for a single
- * Node instance (Railway/Render/self-hosted). If you deploy serverless
- * or multi-instance, swap the store for Upstash Redis — the interface
- * below stays the same.
- */
-type Bucket = number[]; // timestamps (ms) of recent hits
+import { randomUUID } from "crypto";
+import { prisma } from "@/lib/prisma";
 
-const globalForRl = globalThis as unknown as { rlStore?: Map<string, Bucket> };
-const store = (globalForRl.rlStore ??= new Map());
-
-export function rateLimit(
+export async function rateLimit(
   key: string,
   { limit, windowMs }: { limit: number; windowMs: number },
-): { ok: boolean; remaining: number; retryAfterSeconds: number } {
+): Promise<{ ok: boolean; remaining: number; retryAfterSeconds: number }> {
   const now = Date.now();
-  const bucket = (store.get(key) ?? []).filter((t: number) => now - t < windowMs);
-  if (bucket.length >= limit) {
-    const retryAfterSeconds = Math.ceil((bucket[0] + windowMs - now) / 1000);
-    store.set(key, bucket);
+  const windowStart = new Date(now - windowMs);
+  const result = await prisma.$queryRaw<{ count: number; window_start: Date }[]>`
+    INSERT INTO rate_limit_buckets (id, key, window_start, count)
+    VALUES (${randomUUID()}, ${key}, ${new Date(now)}, 1)
+    ON CONFLICT (key) DO UPDATE
+    SET
+      window_start = CASE
+        WHEN rate_limit_buckets.window_start <= ${windowStart}
+        THEN EXCLUDED.window_start
+        ELSE rate_limit_buckets.window_start
+      END,
+      count = CASE
+        WHEN rate_limit_buckets.window_start <= ${windowStart}
+        THEN 1
+        ELSE rate_limit_buckets.count + 1
+      END
+    RETURNING count, window_start
+  `;
+  const bucket = result[0];
+  if (!bucket) throw new Error("Rate limiter did not return a bucket");
+  if (bucket.count > limit) {
+    const retryAfterSeconds = Math.max(
+      1,
+      Math.ceil((bucket.window_start.getTime() + windowMs - now) / 1000),
+    );
     return { ok: false, remaining: 0, retryAfterSeconds };
   }
-  bucket.push(now);
-  store.set(key, bucket);
-  return { ok: true, remaining: limit - bucket.length, retryAfterSeconds: 0 };
+  return { ok: true, remaining: limit - bucket.count, retryAfterSeconds: 0 };
 }
 
 /**

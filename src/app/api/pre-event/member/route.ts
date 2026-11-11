@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { handleApiError, ApiError } from "@/lib/api-guards";
+import { handleApiError, ApiError, requireMember } from "@/lib/api-guards";
 
 export const dynamic = "force-dynamic";
 
@@ -10,16 +10,20 @@ export const dynamic = "force-dynamic";
  */
 export async function GET(req: NextRequest) {
   try {
+    const currentMember = await requireMember();
     const { searchParams } = new URL(req.url);
     const studentId = searchParams.get("studentId")?.trim();
 
     if (!studentId || studentId.length < 3) {
       throw new ApiError(400, "Please provide a valid Student ID");
     }
+    if (studentId !== currentMember.studentId) {
+      throw new ApiError(403, "You may only look up your own member profile");
+    }
 
     // First check Member table
     const member = await prisma.member.findUnique({
-      where: { studentId },
+      where: { id: currentMember.id },
       select: {
         id: true,
         name: true,

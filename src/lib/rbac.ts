@@ -44,7 +44,7 @@ const MATRIX: Record<Role, ReadonlySet<Permission>> = {
     "sessions:manage",
     "announcements:manage",
   ]),
-  SE: new Set<Permission>(["attendance:self", "live:department", "reports:export"]),
+  SE: new Set<Permission>(["attendance:self", "live:department", "signout:approve", "reports:export"]),
   HR_EB: new Set<Permission>([
     "attendance:self",
     "attendance:scan",

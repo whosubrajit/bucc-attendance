@@ -1,12 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { handleUpload, type HandleUploadBody } from "@vercel/blob/client";
-import { requirePermission, handleApiError } from "@/lib/api-guards";
+import { requirePermission, handleApiError, assertSameOrigin } from "@/lib/api-guards";
 import { uploadThemeVariant, registerThemeVariant } from "@/lib/theme-manager";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
+    assertSameOrigin(req);
     const contentType = req.headers.get("content-type") || "";
 
     // 1. JSON Request: either generating client upload token or registering uploaded variant

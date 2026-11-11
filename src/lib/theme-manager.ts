@@ -86,6 +86,19 @@ export const DEFAULT_THEMES_CONFIG: ThemesConfig = {
   updatedAt: new Date().toISOString(),
 };
 
+function isAllowedThemeAssetUrl(fileUrl: string): boolean {
+  try {
+    const url = new URL(fileUrl);
+    return (
+      url.protocol === "https:" &&
+      url.hostname.endsWith(".blob.vercel-storage.com") &&
+      url.pathname.startsWith("/themes/")
+    );
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Fetch themes configuration from Vercel Blob
  */
@@ -175,6 +188,9 @@ export async function registerThemeVariant({
 }): Promise<{ config: ThemesConfig; variant: ThemeVariant }> {
   const sanitizedFolder = folder.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "-");
   const sanitizedVariantId = variantName.trim().toLowerCase().replace(/[^a-z0-9_-]/g, "-");
+  if (!isAllowedThemeAssetUrl(fileUrl)) {
+    throw new Error("Theme asset must be an HTTPS Vercel Blob URL under /themes/");
+  }
 
   const config = await getThemesConfig();
 

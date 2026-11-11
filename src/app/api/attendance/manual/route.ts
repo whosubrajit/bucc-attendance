@@ -31,13 +31,13 @@ export async function POST(req: NextRequest) {
       where: { memberId: member.id, sessionId },
       orderBy: { checkInAt: "desc" },
     });
-    const isReturning = prevAttendance?.status === "LEFT";
+    const isReturning = prevAttendance?.status === "LEFT" || prevAttendance?.status === "LEFT_FORCED";
 
     if (!SELF_ATTENDANCE_ROLES.includes(member.role as Role) && !isReturning) {
       throw new ApiError(403, "You must scan your QR code to check in. Manual check-in is restricted.");
     }
 
-    const rl = rateLimit(`attend:${member.id}`, ATTENDANCE_LIMIT);
+    const rl = await rateLimit(`attend:${member.id}`, ATTENDANCE_LIMIT);
     if (!rl.ok) {
       return NextResponse.json(
         { error: `Too many attempts. Try again in ${rl.retryAfterSeconds}s.` },

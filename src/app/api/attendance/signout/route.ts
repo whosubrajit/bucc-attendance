@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     assertSameOrigin(req);
     const member = await requireMember();
 
-    const rl = rateLimit(`attend:${member.id}`, ATTENDANCE_LIMIT);
+    const rl = await rateLimit(`attend:${member.id}`, ATTENDANCE_LIMIT);
     if (!rl.ok) {
       return NextResponse.json(
         { error: `Too many attempts. Try again in ${rl.retryAfterSeconds}s.` },

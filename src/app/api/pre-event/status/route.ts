@@ -15,6 +15,7 @@ export async function GET() {
     const activePreEvent = await prisma.session.findFirst({
       where: {
         isPreEvent: true,
+        isActive: true,
         startsAt: { gt: now }, // Turns off just before actual meeting starts
       },
       orderBy: { startsAt: "asc" },
