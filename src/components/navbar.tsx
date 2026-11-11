@@ -15,7 +15,7 @@ const NAV = [
   { href: "/dashboard", label: "Dashboard", roles: ["MEMBER", "EB", "SE", "HR_EB", "HR_SE", "GB", "CREATIVE_SE"] },
   { href: "/pre-event", label: "Pre-Event Pass", roles: ["MEMBER", "EB", "SE", "HR_EB", "HR_SE", "GB", "CREATIVE_SE"] },
   { href: "/dashboard/live", label: "Live Board", roles: ["EB", "SE", "HR_EB", "HR_SE", "GB", "CREATIVE_SE"] },
-  { href: "/dashboard/approvals", label: "Approvals", roles: ["EB", "HR_EB", "HR_SE", "GB", "CREATIVE_SE"] },
+  { href: "/dashboard/approvals", label: "Approvals", roles: ["EB", "SE", "HR_EB", "HR_SE", "GB", "CREATIVE_SE"] },
   { href: "/dashboard/analytics", label: "Analytics", roles: ["EB", "SE", "HR_EB", "HR_SE", "GB", "CREATIVE_SE"] },
   { href: "/dashboard/admin", label: "Admin", roles: ["EB", "HR_EB", "HR_SE", "GB"] },
 ];

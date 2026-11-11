@@ -92,7 +92,7 @@ export async function GET(
         prisma.attendance.groupBy({
           by: ["memberId"],
           where: {
-            member: { department: targetMember.department },
+            member: { department: targetMember.department, isActive: true },
             durationMinutes: { not: null },
           },
           _sum: { durationMinutes: true },

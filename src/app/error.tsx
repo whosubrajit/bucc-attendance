@@ -14,6 +14,7 @@
  * tree it is meant to catch can fail the same way it is catching.
  */
 import { useEffect } from "react";
+import Link from "next/link";
 
 export default function Error({
   error,
@@ -44,18 +45,18 @@ export default function Error({
           >
             Try again
           </button>
-          <a
+          <Link
             href="/attend"
             className="flex h-12 w-full items-center justify-center rounded-xl border border-white/20 font-medium text-white transition-colors hover:bg-white/10"
           >
             Go to Mark Attendance
-          </a>
-          <a
+          </Link>
+          <Link
             href="/"
             className="flex h-12 w-full items-center justify-center rounded-xl border border-white/20 font-medium text-white transition-colors hover:bg-white/10"
           >
             Back to home
-          </a>
+          </Link>
         </div>
 
         <p className="mt-8 text-xs text-navy-100/50">

@@ -3,7 +3,7 @@
  * sign-out, approval and cron-escalation routes so every entry point
  * enforces identical rules.
  */
-import { Member } from "@prisma/client";
+import { Member, Prisma } from "@prisma/client";
 import { AttendanceStatus, CheckMethod, Role, SignoutAction } from "@/lib/enums";
 import { differenceInMinutes } from "date-fns";
 import { prisma } from "@/lib/prisma";
@@ -75,6 +75,12 @@ export async function checkIn(
     });
     return { attendance, session };
   } catch (err: unknown) {
+    if (
+      err instanceof Prisma.PrismaClientKnownRequestError &&
+      err.code === "P2002"
+    ) {
+      throw new ApiError(409, "ALREADY_CHECKED_IN");
+    }
     throw err;
   }
 }
@@ -131,34 +137,40 @@ export async function requestSignout(member: Member, sessionId: string, notes?: 
   
   if (shouldAutoApprove) {
     const duration = differenceInMinutes(now, attendance.checkInAt);
-    await prisma.attendance.update({
-      where: { id: attendance.id },
+    const claimed = await prisma.attendance.updateMany({
+      where: { id: attendance.id, status: AttendanceStatus.PRESENT },
       data: {
-        status: AttendanceStatus.LEFT,
-        checkOutRequestedAt: now,
-        checkOutApprovedAt: now,
-        durationMinutes: duration,
-        notes: notes?.trim() || null,
-      },
+          status: AttendanceStatus.LEFT,
+          checkOutRequestedAt: now,
+          checkOutApprovedAt: now,
+          durationMinutes: duration,
+          notes: notes?.trim() || null,
+        },
     });
+    if (claimed.count !== 1) {
+      throw new ApiError(409, "This attendance record has already been processed");
+    }
     publish(`member:${member.id}`, "signout_approved");
     publish("dashboard", "dashboard_update");
     return null; // No request created
   }
 
-  const [request] = await prisma.$transaction([
-    prisma.signoutRequest.create({
-      data: { attendanceId: attendance.id },
-    }),
-    prisma.attendance.update({
-      where: { id: attendance.id },
-      data: { 
-        status: AttendanceStatus.PENDING_SIGNOUT, 
+  const request = await prisma.$transaction(async (tx) => {
+    const claimed = await tx.attendance.updateMany({
+      where: { id: attendance.id, status: AttendanceStatus.PRESENT },
+      data: {
+        status: AttendanceStatus.PENDING_SIGNOUT,
         checkOutRequestedAt: now,
         notes: notes?.trim() || null,
       },
-    }),
-  ]);
+    });
+    if (claimed.count !== 1) {
+      throw new ApiError(409, "This attendance record has already been processed");
+    }
+    return tx.signoutRequest.create({
+      data: { attendanceId: attendance.id },
+    });
+  });
 
   // Notify HR_EB + HR_SE in realtime (including temp powers).
   const approvers = await prisma.member.findMany({
@@ -217,13 +229,16 @@ export async function reviewSignout(
     // Member's time is credited up until they clicked "Sign Out", not when we approve it.
     const effectiveOut = request.attendance.checkOutRequestedAt || request.requestedAt;
     const duration = differenceInMinutes(effectiveOut, request.attendance.checkInAt);
-    await prisma.$transaction([
-      prisma.signoutRequest.update({
-        where: { id: requestId },
+    await prisma.$transaction(async (tx) => {
+      const claimed = await tx.signoutRequest.updateMany({
+        where: { id: requestId, action: SignoutAction.PENDING },
         data: { action: SignoutAction.APPROVED, reviewedById: approver.id, reviewedAt: now },
-      }),
-      prisma.attendance.update({
-        where: { id: request.attendanceId },
+      });
+      if (claimed.count !== 1) {
+        throw new ApiError(409, "This request has already been reviewed");
+      }
+      const attendanceClaim = await tx.attendance.updateMany({
+        where: { id: request.attendanceId, status: AttendanceStatus.PENDING_SIGNOUT },
         data: {
           status: AttendanceStatus.LEFT,
           checkOutRequestedAt: effectiveOut,
@@ -231,8 +246,11 @@ export async function reviewSignout(
           approvedById: approver.id,
           durationMinutes: duration,
         },
-      }),
-      prisma.auditLog.create({
+      });
+      if (attendanceClaim.count !== 1) {
+        throw new ApiError(409, "This attendance record has already been processed");
+      }
+      await tx.auditLog.create({
         data: {
           actorId: approver.id,
           action: "SIGNOUT_APPROVED",
@@ -240,8 +258,8 @@ export async function reviewSignout(
           targetId: requestId,
           metadata: JSON.stringify({ memberId: target.id, durationMinutes: duration }),
         },
-      }),
-    ]);
+      });
+    });
     await notifyMembers({
       memberIds: [target.id],
       type: "SIGNOUT_APPROVED",
@@ -253,22 +271,28 @@ export async function reviewSignout(
     });
     publish(`member:${target.id}`, "signout_approved");
   } else {
-    await prisma.$transaction([
-      prisma.signoutRequest.update({
-        where: { id: requestId },
+    await prisma.$transaction(async (tx) => {
+      const claimed = await tx.signoutRequest.updateMany({
+        where: { id: requestId, action: SignoutAction.PENDING },
         data: {
           action: SignoutAction.REJECTED,
           reviewedById: approver.id,
           reviewedAt: now,
           rejectionReason: rejectionReason?.slice(0, 500) || null,
         },
-      }),
+      });
+      if (claimed.count !== 1) {
+        throw new ApiError(409, "This request has already been reviewed");
+      }
       // Member stays present and may re-submit later.
-      prisma.attendance.update({
-        where: { id: request.attendanceId },
+      const attendanceClaim = await tx.attendance.updateMany({
+        where: { id: request.attendanceId, status: AttendanceStatus.PENDING_SIGNOUT },
         data: { status: AttendanceStatus.PRESENT, checkOutRequestedAt: null },
-      }),
-      prisma.auditLog.create({
+      });
+      if (attendanceClaim.count !== 1) {
+        throw new ApiError(409, "This attendance record has already been processed");
+      }
+      await tx.auditLog.create({
         data: {
           actorId: approver.id,
           action: "SIGNOUT_REJECTED",
@@ -276,8 +300,8 @@ export async function reviewSignout(
           targetId: requestId,
           metadata: JSON.stringify({ memberId: target.id, reason: rejectionReason ?? null }),
         },
-      }),
-    ]);
+      });
+    });
     await notifyMembers({
       memberIds: [target.id],
       type: "SIGNOUT_REJECTED",
@@ -306,13 +330,19 @@ export async function escalateStaleRequests(): Promise<{ escalated: number; auto
     where: { action: SignoutAction.PENDING, isEscalated: false, requestedAt: { lt: escalateBefore } },
     include: { attendance: { include: { member: true, session: { select: { name: true } } } } },
   });
+  let escalated = 0;
   if (toEscalate.length > 0) {
     const escalationTargets = await prisma.member.findMany({
       where: { role: { in: SIGNOUT_ESCALATION_ROLES }, isActive: true },
       select: { id: true },
     });
     for (const req of toEscalate) {
-      await prisma.signoutRequest.update({ where: { id: req.id }, data: { isEscalated: true } });
+      const claimed = await prisma.signoutRequest.updateMany({
+        where: { id: req.id, action: SignoutAction.PENDING, isEscalated: false },
+        data: { isEscalated: true },
+      });
+      if (claimed.count !== 1) continue;
+      escalated++;
       await notifyMembers({
         memberIds: escalationTargets.map((m) => m.id),
         type: "SIGNOUT_ESCALATED",
@@ -332,34 +362,47 @@ export async function escalateStaleRequests(): Promise<{ escalated: number; auto
     where: { action: SignoutAction.PENDING, requestedAt: { lt: autoApproveBefore } },
     include: { attendance: { include: { member: true, session: { select: { name: true } } } } },
   });
+  let autoApproved = 0;
   for (const req of toAutoApprove) {
     // Official sign-out time = when it was requested, not when the cron ran.
     const effectiveOut = req.requestedAt;
     const duration = differenceInMinutes(effectiveOut, req.attendance.checkInAt);
-    await prisma.$transaction([
-      prisma.signoutRequest.update({
-        where: { id: req.id },
-        data: { action: SignoutAction.AUTO_APPROVED, reviewedAt: now, needsReview: true },
-      }),
-      prisma.attendance.update({
-        where: { id: req.attendanceId },
-        data: {
-          status: AttendanceStatus.LEFT,
-          checkOutRequestedAt: effectiveOut,
-          checkOutApprovedAt: effectiveOut,
-          durationMinutes: duration,
-        },
-      }),
-      prisma.auditLog.create({
-        data: {
-          actorId: req.attendance.memberId,
-          action: "SIGNOUT_AUTO_APPROVED",
-          targetType: "signout_request",
-          targetId: req.id,
-          metadata: JSON.stringify({ system: true, reason: "auto-approved after 2h timeout" }),
-        },
-      }),
-    ]);
+    let claimed = false;
+    try {
+      claimed = await prisma.$transaction(async (tx) => {
+        const result = await tx.signoutRequest.updateMany({
+          where: { id: req.id, action: SignoutAction.PENDING },
+          data: { action: SignoutAction.AUTO_APPROVED, reviewedAt: now, needsReview: true },
+        });
+        if (result.count !== 1) return false;
+        const attendanceClaim = await tx.attendance.updateMany({
+          where: { id: req.attendanceId, status: AttendanceStatus.PENDING_SIGNOUT },
+          data: {
+            status: AttendanceStatus.LEFT,
+            checkOutRequestedAt: effectiveOut,
+            checkOutApprovedAt: effectiveOut,
+            durationMinutes: duration,
+          },
+        });
+        if (attendanceClaim.count !== 1) {
+          throw new ApiError(409, "Attendance state changed during auto-approval");
+        }
+        await tx.auditLog.create({
+          data: {
+            actorId: null,
+            action: "SIGNOUT_AUTO_APPROVED",
+            targetType: "signout_request",
+            targetId: req.id,
+            metadata: JSON.stringify({ system: true, reason: "auto-approved after 2h timeout" }),
+          },
+        });
+        return true;
+      });
+    } catch (err) {
+      if (!(err instanceof ApiError) || err.status !== 409) throw err;
+    }
+    if (!claimed) continue;
+    autoApproved++;
     await notifyMembers({
       memberIds: [req.attendance.memberId],
       type: "SIGNOUT_APPROVED",
@@ -367,9 +410,9 @@ export async function escalateStaleRequests(): Promise<{ escalated: number; auto
     });
     publish(`member:${req.attendance.memberId}`, "signout_approved");
   }
-  if (toAutoApprove.length > 0) publish("dashboard", "dashboard_update");
+  if (autoApproved > 0) publish("dashboard", "dashboard_update");
 
-  return { escalated: toEscalate.length, autoApproved: toAutoApprove.length };
+  return { escalated, autoApproved };
 }
 
 /** Roles allowed to see a given pending request in their approvals panel. */

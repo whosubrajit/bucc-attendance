@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { handleApiError, ApiError } from "@/lib/api-guards";
+import { handleApiError, ApiError, assertSameOrigin, requireMember, requirePermission } from "@/lib/api-guards";
 import { getCurrentMember } from "@/lib/page-guards";
+import { can } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
 
@@ -27,13 +28,13 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const sessionId = searchParams.get("sessionId");
-    const studentId = searchParams.get("studentId");
 
     const now = new Date();
     // Only upcoming sessions marked as pre-event by admin/hrse/eb/gb before actual meeting starts
     const sessions = await prisma.session.findMany({
       where: {
         isPreEvent: true,
+        isActive: true,
         startsAt: { gt: now }, // Pre-event tracker turns off when meeting starts
       },
       orderBy: { startsAt: "asc" },
@@ -49,6 +50,7 @@ export async function GET(req: NextRequest) {
     });
 
     const currentMember = await getCurrentMember();
+    const canViewRoster = currentMember ? can(currentMember.role, "sessions:manage") : false;
 
     if (sessions.length === 0) {
       return NextResponse.json({
@@ -82,9 +84,14 @@ export async function GET(req: NextRequest) {
     const targetSessionId = activeSession.id;
 
     // Fetch RSVPs strictly for this session
-    const whereClause: any = { sessionId: targetSessionId };
-    if (studentId) {
-      whereClause.studentId = studentId.trim();
+    const whereClause: { sessionId: string; studentId?: string } = { sessionId: targetSessionId };
+    if (!canViewRoster) {
+      const ownStudentId = currentMember?.studentId?.trim();
+      if (ownStudentId) {
+        whereClause.studentId = ownStudentId;
+      } else {
+        whereClause.studentId = "__no_public_roster__";
+      }
     }
 
     const [rsvps, totalConfirmed, totalCancelled] = await Promise.all([
@@ -113,16 +120,27 @@ export async function GET(req: NextRequest) {
 
     // Breakdown by department for confirmed attendees
     const deptStats: Record<string, { confirmed: number; cancelled: number }> = {};
-    for (const r of rsvps) {
-      const d = r.dept || "Unknown";
-      if (!deptStats[d]) deptStats[d] = { confirmed: 0, cancelled: 0 };
-      if (r.status === "Confirmed") deptStats[d].confirmed++;
-      else if (r.status === "Cancelled") deptStats[d].cancelled++;
+    if (canViewRoster) {
+      for (const r of rsvps) {
+        const d = r.dept || "Unknown";
+        if (!deptStats[d]) deptStats[d] = { confirmed: 0, cancelled: 0 };
+        if (r.status === "Confirmed") deptStats[d].confirmed++;
+        else if (r.status === "Cancelled") deptStats[d].cancelled++;
+      }
     }
+    const visibleRsvps = canViewRoster
+      ? rsvps
+      : rsvps.map((r) => ({
+          id: r.id,
+          status: r.status,
+          sessionId: r.sessionId,
+          createdAt: r.createdAt,
+          updatedAt: r.updatedAt,
+        }));
 
     // Check if user has an RSVP
     let userRsvp = null;
-    const lookupStudentId = studentId?.trim() || currentMember?.studentId?.trim();
+    const lookupStudentId = currentMember?.studentId?.trim();
 
     if (lookupStudentId && targetSessionId) {
       userRsvp = rsvps.find((r) => r.studentId === lookupStudentId) ?? null;
@@ -138,12 +156,22 @@ export async function GET(req: NextRequest) {
       }
     }
 
+    const safeUserRsvp = userRsvp && !canViewRoster
+      ? {
+          id: userRsvp.id,
+          status: userRsvp.status,
+          sessionId: userRsvp.sessionId,
+          createdAt: userRsvp.createdAt,
+          updatedAt: userRsvp.updatedAt,
+        }
+      : userRsvp;
+
     return NextResponse.json({
       hasActivePreEvent: true,
       sessions,
       activeSession,
-      rsvps,
-      userRsvp,
+      rsvps: visibleRsvps,
+      userRsvp: safeUserRsvp,
       currentMember: currentMember
         ? {
             id: currentMember.id,
@@ -172,18 +200,28 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
+    assertSameOrigin(req);
+    const currentMember = await requireMember();
     const rawBody = await req.json();
     const body = rsvpPostSchema.parse(rawBody);
 
     // Verify session exists and is an ACTIVE upcoming pre-event
     const session = await prisma.session.findUnique({
       where: { id: body.sessionId },
-      select: { id: true, name: true, venue: true, startsAt: true, endsAt: true, isPreEvent: true },
+      select: {
+        id: true,
+        name: true,
+        venue: true,
+        startsAt: true,
+        endsAt: true,
+        isPreEvent: true,
+        isActive: true,
+      },
     });
     if (!session) {
       throw new ApiError(404, "Scheduled meeting session not found");
     }
-    if (!session.isPreEvent) {
+    if (!session.isPreEvent || !session.isActive) {
       throw new ApiError(400, "Pre-Event Pass is not enabled for this session");
     }
     if (new Date(session.startsAt) <= new Date()) {
@@ -191,11 +229,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Prefer verified credentials from logged-in member to prevent duplicates
-    const currentMember = await getCurrentMember();
-    const studentId = (currentMember?.studentId || body.studentId).trim();
-    const name = currentMember?.name || body.name.trim();
-    const dept = currentMember?.department || body.dept.trim();
-    const designation = currentMember?.designation || body.designation.trim();
+    const studentId = currentMember.studentId;
+    const name = currentMember.name;
+    const dept = currentMember.department;
+    const designation = currentMember.designation;
 
     // Upsert member's pre-event RSVP
     const rsvp = await prisma.preEventRsvp.upsert({
@@ -253,6 +290,8 @@ export async function POST(req: NextRequest) {
  */
 export async function DELETE(req: NextRequest) {
   try {
+    assertSameOrigin(req);
+    await requirePermission("sessions:manage");
     const { searchParams } = new URL(req.url);
     const id = searchParams.get("id");
     if (!id) throw new ApiError(400, "Missing RSVP ID");

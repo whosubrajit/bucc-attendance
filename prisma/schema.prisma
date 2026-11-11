@@ -82,6 +82,7 @@ model Session {
   preEventRsvps PreEventRsvp[]
 
   @@index([isActive, startsAt])
+  @@index([isPreEvent, isActive, startsAt])
   @@index([isPreEvent, endsAt])
   @@map("sessions")
 }
@@ -106,7 +107,8 @@ model PreEventRsvp {
   @@map("pre_event_rsvps")
 }
 
-/// One attendance record per member per session (enforced by @@unique).
+/// Historical attendance records are retained, but only one active record per
+/// member/session is allowed by the PostgreSQL partial unique index migration.
 model Attendance {
   id                   String           @id @default(cuid())
   memberId             String           @map("member_id")
@@ -132,6 +134,7 @@ model Attendance {
   @@index([memberId, checkInAt])
   @@index([status])
   @@index([checkInAt])
+  @@index([checkInAt, status])
   @@map("attendance")
 }
 
@@ -193,16 +196,28 @@ model Announcement {
 /// member management, QR generation, central-DB syncs).
 model AuditLog {
   id         String   @id @default(cuid())
-  actorId    String   @map("actor_id")
+  actorId    String?  @map("actor_id")
   action     String // e.g. SIGNOUT_APPROVED, MEMBER_DEACTIVATED, CENTRAL_SYNC
   targetType String   @map("target_type")
   targetId   String?  @map("target_id")
   metadata   String?
   createdAt  DateTime @default(now()) @map("created_at")
 
-  actor Member @relation(fields: [actorId], references: [id])
+  actor Member? @relation(fields: [actorId], references: [id])
 
   @@index([actorId, createdAt])
   @@index([action, createdAt])
+  @@index([createdAt])
   @@map("audit_logs")
+}
+
+/// Shared sliding-window counters for rate-limited actions across instances.
+model RateLimitBucket {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  windowStart DateTime @map("window_start")
+  count       Int      @default(0)
+
+  @@index([windowStart])
+  @@map("rate_limit_buckets")
 }

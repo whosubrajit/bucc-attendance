@@ -605,7 +605,7 @@ export function ThemeManagerTab() {
                 <div className="p-5">
                   {pack.variants.length === 0 ? (
                     <div className="text-center py-8 text-sm text-slate-400">
-                      No variants uploaded in this folder yet. Click "Upload New Theme" above to add one!
+                      No variants uploaded in this folder yet. Click &quot;Upload New Theme&quot; above to add one!
                     </div>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">

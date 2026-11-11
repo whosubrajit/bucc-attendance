@@ -7,12 +7,14 @@
  *  - MEMBER             → 403
  */
 import { NextRequest, NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { AttendanceStatus } from "@/lib/enums";
-import { requirePermission, handleApiError } from "@/lib/api-guards";
+import { requirePermission, handleApiError, ApiError } from "@/lib/api-guards";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/rbac";
 
 export const dynamic = "force-dynamic";
+const MAX_LIVE_ROWS = 5000;
 
 export async function GET(req: NextRequest) {
   try {
@@ -23,19 +25,28 @@ export async function GET(req: NextRequest) {
     // Server-side scoping — client-sent department is ignored for EB/SE.
     const department = seesAll ? p.get("department") || undefined : viewer.department;
 
-    const status = p.get("status") as AttendanceStatus | null;
+    const requestedStatus = p.get("status") as AttendanceStatus | null;
+    const status = requestedStatus && Object.values(AttendanceStatus).includes(requestedStatus)
+      ? requestedStatus
+      : undefined;
     const q = p.get("q")?.trim();
     const dateStr = p.get("date"); // YYYY-MM-DD, defaults to today
     const sessionId = p.get("sessionId");
     const page = Math.max(1, Number(p.get("page")) || 1);
-    const pageSize = Math.min(200, Number(p.get("pageSize")) || 50);
+    const pageSize = Math.min(200, Math.max(1, Number(p.get("pageSize")) || 50));
 
+    if (dateStr && !/^\d{4}-\d{2}-\d{2}$/.test(dateStr)) {
+      throw new ApiError(400, "Invalid date filter");
+    }
     const day = dateStr ? new Date(`${dateStr}T00:00:00`) : new Date(new Date().setHours(0, 0, 0, 0));
+    if (Number.isNaN(day.getTime())) {
+      throw new ApiError(400, "Invalid date filter");
+    }
     const nextDay = new Date(day.getTime() + 24 * 60 * 60 * 1000);
 
     const where = {
       ...(sessionId ? { sessionId } : { checkInAt: { gte: day, lt: nextDay } }),
-      ...(status && Object.values(AttendanceStatus).includes(status) ? { status } : {}),
+      ...(status ? { status } : {}),
       member: {
         ...(department ? { department } : {}),
         ...(q ? { name: { contains: q, mode: "insensitive" as const } } : {}),
@@ -45,41 +56,53 @@ export async function GET(req: NextRequest) {
     const [rows, total, byStatus, byDepartment] = await Promise.all([
       prisma.attendance.findMany({
         where,
-        include: {
-          member: { select: { name: true, department: true, designation: true, profilePhotoUrl: true } },
+        take: MAX_LIVE_ROWS + 1,
+        select: {
+          id: true,
+          checkInAt: true,
+          checkOutApprovedAt: true,
+          checkOutRequestedAt: true,
+          status: true,
+          member: { select: { name: true, department: true, designation: true } },
           session: { select: { name: true } },
         },
       }),
       prisma.attendance.count({ where }),
       prisma.attendance.groupBy({
         by: ["status"],
-        where: { 
-          ...(sessionId ? { sessionId } : { checkInAt: { gte: day, lt: nextDay } }), 
-          ...(department ? { member: { department } } : {}) 
-        },
+        where,
         _count: true,
       }),
       // Per-department breakdown (only meaningful for global viewers)
       seesAll
         ? (sessionId
-            ? prisma.$queryRaw<{ department: string; present: bigint; pending: bigint; left: bigint }[]>`
+            ? prisma.$queryRaw<{ department: string; present: bigint; pending: bigint; left: bigint }[]>(Prisma.sql`
                 SELECT m.department,
                        COUNT(*) FILTER (WHERE a.status = 'PRESENT')          AS present,
                        COUNT(*) FILTER (WHERE a.status = 'PENDING_SIGNOUT')  AS pending,
                        COUNT(*) FILTER (WHERE a.status IN ('LEFT', 'LEFT_FORCED')) AS "left"
                 FROM attendance a JOIN members m ON m.id = a.member_id
                 WHERE a.session_id = ${sessionId}
-                GROUP BY m.department ORDER BY m.department`
-            : prisma.$queryRaw<{ department: string; present: bigint; pending: bigint; left: bigint }[]>`
+                  ${department ? Prisma.sql`AND m.department = ${department}` : Prisma.empty}
+                  ${q ? Prisma.sql`AND m.name ILIKE ${`%${q}%`}` : Prisma.empty}
+                  ${status ? Prisma.sql`AND a.status = ${status}` : Prisma.empty}
+                GROUP BY m.department ORDER BY m.department`)
+            : prisma.$queryRaw<{ department: string; present: bigint; pending: bigint; left: bigint }[]>(Prisma.sql`
                 SELECT m.department,
                        COUNT(*) FILTER (WHERE a.status = 'PRESENT')          AS present,
                        COUNT(*) FILTER (WHERE a.status = 'PENDING_SIGNOUT')  AS pending,
                        COUNT(*) FILTER (WHERE a.status IN ('LEFT', 'LEFT_FORCED')) AS "left"
                 FROM attendance a JOIN members m ON m.id = a.member_id
                 WHERE a.check_in_at >= ${day} AND a.check_in_at < ${nextDay}
-                GROUP BY m.department ORDER BY m.department`)
+                  ${department ? Prisma.sql`AND m.department = ${department}` : Prisma.empty}
+                  ${q ? Prisma.sql`AND m.name ILIKE ${`%${q}%`}` : Prisma.empty}
+                  ${status ? Prisma.sql`AND a.status = ${status}` : Prisma.empty}
+                GROUP BY m.department ORDER BY m.department`))
         : Promise.resolve([]),
     ]);
+    if (total > MAX_LIVE_ROWS) {
+      throw new ApiError(413, `Live Board contains ${total} rows; narrow the filters before loading it`);
+    }
 
     let finalRows = rows;
     const hierarchy: Record<string, number> = {

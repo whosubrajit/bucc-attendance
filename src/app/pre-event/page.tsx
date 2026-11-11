@@ -25,6 +25,7 @@ export default async function PreEventPage({
   const sessions = await prisma.session.findMany({
     where: {
       isPreEvent: true,
+      isActive: true,
       startsAt: { gt: now },
     },
     orderBy: { startsAt: "asc" },
@@ -60,21 +61,6 @@ export default async function PreEventPage({
       designation: currentMember.designation,
       role: currentMember.role,
     };
-  } else if (targetStudentId) {
-    const mem = await prisma.member.findUnique({
-      where: { studentId: targetStudentId.trim() },
-      select: { id: true, name: true, studentId: true, department: true, designation: true, role: true },
-    });
-    if (mem) {
-      resolvedMember = {
-        id: mem.id,
-        name: mem.name,
-        studentId: mem.studentId,
-        dept: mem.department,
-        designation: mem.designation,
-        role: mem.role,
-      };
-    }
   }
 
   // Check initial RSVP status

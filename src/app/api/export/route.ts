@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requirePermission, handleApiError } from "@/lib/api-guards";
+import { requirePermission, handleApiError, ApiError } from "@/lib/api-guards";
 import { prisma } from "@/lib/prisma";
 import { can } from "@/lib/rbac";
 import { AttendanceStatus } from "@/lib/enums";
 
 export const dynamic = "force-dynamic";
+const MAX_EXPORT_ROWS = 10000;
 
 function csvEscape(v: unknown): string {
   let s = String(v ?? "");
@@ -22,8 +23,16 @@ export async function GET(req: NextRequest) {
     const sessionId = p.get("sessionId") ?? undefined;
 
     if (type === "pre-event") {
+      const preEventWhere = {
+        ...(sessionId ? { sessionId } : {}),
+        ...(!can(viewer.role, "live:all") ? { dept: viewer.department } : {}),
+      };
+      const preEventCount = await prisma.preEventRsvp.count({ where: preEventWhere });
+      if (preEventCount > MAX_EXPORT_ROWS) {
+        throw new ApiError(413, `Export contains ${preEventCount} rows; narrow it to at most ${MAX_EXPORT_ROWS} rows`);
+      }
       const rsvps = await prisma.preEventRsvp.findMany({
-        where: sessionId ? { sessionId } : {},
+        where: preEventWhere,
         include: { session: { select: { name: true, startsAt: true } } },
         orderBy: [{ dept: "asc" }, { name: "asc" }],
       });
@@ -51,10 +60,24 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const from = p.get("from") ? new Date(`${p.get("from")}T00:00:00`) : undefined;
-    const to = p.get("to") ? new Date(`${p.get("to")}T23:59:59`) : undefined;
+    const fromValue = p.get("from");
+    const toValue = p.get("to");
+    if ((fromValue && !/^\d{4}-\d{2}-\d{2}$/.test(fromValue)) || (toValue && !/^\d{4}-\d{2}-\d{2}$/.test(toValue))) {
+      return NextResponse.json({ error: "Invalid export date" }, { status: 400 });
+    }
+    const from = fromValue ? new Date(`${fromValue}T00:00:00`) : undefined;
+    const to = toValue ? new Date(`${toValue}T23:59:59.999`) : undefined;
+    if ((from && Number.isNaN(from.getTime())) || (to && Number.isNaN(to.getTime()))) {
+      return NextResponse.json({ error: "Invalid export date" }, { status: 400 });
+    }
+    if (from && to && from > to) {
+      return NextResponse.json({ error: "Export start date must be on or before the end date" }, { status: 400 });
+    }
 
-    const department = can(viewer.role, "live:all") ? undefined : viewer.department;
+    const requestedDepartment = p.get("department")?.trim() || undefined;
+    const department = can(viewer.role, "live:all")
+      ? requestedDepartment
+      : viewer.department;
 
     let sessionName = "Attendance Export";
     let requiresFeedback = false;
@@ -66,16 +89,19 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const rows = await prisma.attendance.findMany({
-      where: {
-        ...(sessionId ? { sessionId } : {}),
-        ...(from || to ? { checkInAt: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}),
-        ...(department ? { member: { department } } : {}),
-        member: {
-          designation: { in: ["Senior Executive", "Executive", "General Member"] }
-        }
+    const exportWhere = {
+      ...(sessionId ? { sessionId } : {}),
+      ...(from || to ? { checkInAt: { ...(from ? { gte: from } : {}), ...(to ? { lte: to } : {}) } } : {}),
+      member: {
+        ...(department ? { department } : {}),
       },
-      take: 10000,
+    };
+    const exportCount = await prisma.attendance.count({ where: exportWhere });
+    if (exportCount > MAX_EXPORT_ROWS) {
+      throw new ApiError(413, `Export contains ${exportCount} rows; narrow it to at most ${MAX_EXPORT_ROWS} rows`);
+    }
+    const rows = await prisma.attendance.findMany({
+      where: exportWhere,
       include: {
         member: { select: { name: true, studentId: true, department: true, designation: true } },
       },

@@ -107,7 +107,7 @@ export function LiveBoard({ global, canExport }: { global: boolean, canExport?: 
                     exit={{ height: 0, opacity: 0 }}
                     className="overflow-hidden"
                   >
-                    <div className="flex gap-4 px-4 pb-3 text-sm text-slate-600 dark:text-slate-300">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 px-4 pb-3 text-sm text-slate-600 dark:text-slate-300">
                       <span>🟢 {d.present} present</span>
                       <span>🟡 {d.pending} pending</span>
                       <span>🔴 {d.left} left</span>
@@ -150,7 +150,13 @@ export function LiveBoard({ global, canExport }: { global: boolean, canExport?: 
         </select>
         <input type="date" value={date} onChange={(e) => { setDate(e.target.value); setPage(1); }} aria-label="Filter by date" className={inputCls} />
         {canExport && (
-          <a href={`/api/export?${session ? `sessionId=${session}` : (date ? `from=${date}&to=${date}` : '')}`}>
+          <a
+            href={`/api/export?${new URLSearchParams({
+              ...(session ? { sessionId: session } : {}),
+              ...(!session && date ? { from: date, to: date } : {}),
+              ...(department ? { department } : {}),
+            }).toString()}`}
+          >
             <Button variant="secondary"><Download className="h-4 w-4" aria-hidden /> CSV</Button>
           </a>
         )}

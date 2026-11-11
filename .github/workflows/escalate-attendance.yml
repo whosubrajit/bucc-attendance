@@ -1,0 +1,23 @@
+name: Escalate stale attendance requests
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  escalate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call escalation endpoint
+        env:
+          ESCALATION_URL: ${{ secrets.ESCALATION_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
+        run: |
+          set -eu
+          test -n "$ESCALATION_URL"
+          test -n "$CRON_SECRET"
+          curl --fail-with-body --silent --show-error \
+            --retry 2 --retry-delay 10 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "$ESCALATION_URL/api/cron/escalate"

@@ -178,14 +178,9 @@ function SessionsTab() {
             Venue
             <input className={inputCls} value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} />
           </label>
-          <label className="text-sm">
-            Recurrence
-            <select className={inputCls} value={form.recurrence} onChange={(e) => setForm({ ...form, recurrence: e.target.value })}>
-              <option value="NONE">One-off</option>
-              <option value="WEEKLY">Weekly</option>
-              <option value="MONTHLY">Monthly</option>
-            </select>
-          </label>
+          <p className="text-sm text-slate-500 sm:col-span-2">
+            Recurring sessions are not available yet. Create each session separately.
+          </p>
           <label className="text-sm">
             Starts
             <input required type="datetime-local" className={inputCls} value={form.startsAt} onChange={(e) => setForm({ ...form, startsAt: e.target.value })} />

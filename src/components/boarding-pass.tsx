@@ -20,7 +20,6 @@ import {
   Printer,
   ChevronDown,
   RefreshCw,
-  Search,
   Check,
   AlertCircle,
   QrCode as QrIcon,
@@ -127,8 +126,6 @@ export function BoardingPass({
   const [passTheme, setPassTheme] = useState<string>("doom");
   const [selectedVariantId, setSelectedVariantId] = useState<string>("stained-glass");
   const [downloading, setDownloading] = useState(false);
-  const [studentIdInput, setStudentIdInput] = useState("");
-  const [searchingMember, setSearchingMember] = useState(false);
   const [copied, setCopied] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
   const [mobilePassModalUrl, setMobilePassModalUrl] = useState<string | null>(null);
@@ -193,6 +190,8 @@ export function BoardingPass({
   // Auto-switch passTheme if current pack is no longer in livePacks
   useEffect(() => {
     if (passTheme !== "classic" && livePacks.length > 0 && !livePacks.some((p) => p.id === passTheme)) {
+      // The selected pack is user state that must be reset when an admin removes it.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setPassTheme(livePacks[0].id);
     }
   }, [livePacks, passTheme]);
@@ -200,33 +199,39 @@ export function BoardingPass({
   // Auto-select first variant if current selection is not present in active pack
   useEffect(() => {
     if (variants.length > 0 && !variants.some((v) => v.id === selectedVariantId)) {
+      // The selected variant is user state that must follow the active pack.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setSelectedVariantId(variants[0].id);
     }
   }, [variants, selectedVariantId]);
 
   // Sync session if initial changes
   useEffect(() => {
-    if (initialSession) setSelectedSession(initialSession);
+    if (initialSession) {
+      // Keep the controlled initial session synchronized when its parent changes.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setSelectedSession(initialSession);
+    }
   }, [initialSession]);
 
   // Sync member if currentMember changes
   useEffect(() => {
     if (currentMember) {
+      // Keep the local editable member form synchronized with the authenticated member.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMember(currentMember);
-      setStudentIdInput(currentMember.studentId);
     }
   }, [currentMember]);
 
   // Fetch member's status whenever session or member changes
+  const selectedSessionId = selectedSession?.id;
   useEffect(() => {
-    if (!selectedSession || !member?.studentId) return;
+    if (!selectedSessionId || !member?.studentId) return;
 
     let cancelled = false;
     async function checkStatus() {
       try {
-        const res = await fetch(
-          `/api/pre-event?sessionId=${selectedSession?.id}&studentId=${member?.studentId}`
-        );
+          const res = await fetch(`/api/pre-event?sessionId=${selectedSessionId}`);
         if (res.ok && !cancelled) {
           const data = await res.json();
           if (data.userRsvp) {
@@ -244,30 +249,7 @@ export function BoardingPass({
     return () => {
       cancelled = true;
     };
-  }, [selectedSession?.id, member?.studentId]);
-
-  // Member lookup by Student ID (for users who opened link without signing in)
-  async function handleLookupMember(e: React.FormEvent) {
-    e.preventDefault();
-    const sid = studentIdInput.trim();
-    if (!sid) return;
-
-    setSearchingMember(true);
-    try {
-      const res = await fetch(`/api/pre-event/member?studentId=${encodeURIComponent(sid)}`);
-      const data = await res.json();
-      if (!res.ok) {
-        toast("error", data.error || "Student ID not found in club database");
-        return;
-      }
-      setMember(data.member);
-      toast("success", `Welcome aboard, ${data.member.name.split(" ")[0]}!`);
-    } catch (err) {
-      toast("error", "Failed to search member");
-    } finally {
-      setSearchingMember(false);
-    }
-  }
+  }, [selectedSessionId, member?.studentId]);
 
   // Handle RSVP submission
   async function handleRsvp(newStatus: "Confirmed" | "Cancelled") {
@@ -367,10 +349,7 @@ export function BoardingPass({
     const activeVariant = variants.find((v) => v.id === selectedVariantId) || variants[0];
     const img = new window.Image();
     img.crossOrigin = "anonymous";
-    const srcUrl = activeVariant.file.startsWith("http")
-      ? `${activeVariant.file}${activeVariant.file.includes("?") ? "&" : "?"}t=${Date.now()}`
-      : activeVariant.file;
-    img.src = srcUrl;
+    img.src = activeVariant.file;
 
     const timeout = setTimeout(() => {
       setDownloading(false);
@@ -632,7 +611,7 @@ export function BoardingPass({
     : "BUCC-2026";
 
   const qrPayload = typeof window !== "undefined"
-    ? `${window.location.origin}/pre-event?session=${selectedSession?.id || ""}&sid=${member?.studentId || ""}`
+    ? `${window.location.origin}/pre-event?session=${selectedSession?.id || ""}&studentId=${encodeURIComponent(member?.studentId || "")}`
     : `BUCC-PASS-${member?.studentId || "GUEST"}`;
 
   return (
@@ -722,31 +701,15 @@ export function BoardingPass({
         </div>
       </div>
 
-      {/* Member Lookup if not identified yet */}
+      {/* RSVP requires an authenticated member identity. */}
       {!member && (
         <div className="bg-amber-500/10 border border-amber-500/30 rounded-2xl p-4 text-slate-800 dark:text-slate-200 print:hidden">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div>
-              <p className="font-semibold text-sm flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
-                <AlertCircle className="h-4 w-4" /> Guest Mode: Enter Student ID
-              </p>
-              <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
-                Enter your 8-digit BRACU Student ID to load your personalized Boarding Pass.
-              </p>
-            </div>
-            <form onSubmit={handleLookupMember} className="flex gap-2 w-full sm:w-auto">
-              <input
-                type="text"
-                placeholder="e.g. 24301000"
-                value={studentIdInput}
-                onChange={(e) => setStudentIdInput(e.target.value)}
-                className="h-9 px-3 rounded-xl border border-slate-300 dark:border-navy-700 bg-white dark:bg-navy-900 text-sm focus:outline-none focus:ring-2 focus:ring-electric-500 w-36 sm:w-44"
-              />
-              <Button type="submit" size="sm" loading={searchingMember} className="gap-1.5">
-                <Search className="h-3.5 w-3.5" /> Lookup
-              </Button>
-            </form>
-          </div>
+          <p className="font-semibold text-sm flex items-center gap-1.5 text-amber-600 dark:text-amber-400">
+            <AlertCircle className="h-4 w-4" /> Sign in to manage your Boarding Pass
+          </p>
+          <p className="text-xs text-slate-600 dark:text-slate-400 mt-0.5">
+            RSVP changes are restricted to your authenticated club account.
+          </p>
         </div>
       )}
 

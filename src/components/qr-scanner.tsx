@@ -44,9 +44,11 @@ export default function QrScanner({
 
   // Latest callbacks without making them effect dependencies.
   const onScanRef = useRef(onScan);
-  onScanRef.current = onScan;
   const onErrorRef = useRef(onError);
-  onErrorRef.current = onError;
+  useEffect(() => {
+    onScanRef.current = onScan;
+    onErrorRef.current = onError;
+  }, [onScan, onError]);
 
   useEffect(() => {
     let mounted = true;
@@ -184,7 +186,6 @@ export default function QrScanner({
       if (running) release();
     };
     // Mount-once by design — see the file header. Callbacks are read via refs.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

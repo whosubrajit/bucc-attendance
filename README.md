@@ -176,6 +176,21 @@ Every administrative action is guarded server-side against fresh database lookup
 | `npm run db:seed` | Seeds central member database & default test accounts |
 | `npm run db:studio` | Opens Prisma Studio GUI to inspect records |
 
+### External escalation scheduler
+
+The stale-attendance escalation endpoint is protected by `CRON_SECRET` and is
+scheduled through GitHub Actions rather than Vercel Cron. In the repository's
+**Settings → Secrets and variables → Actions**, add:
+
+- `ESCALATION_URL`: the deployed application's origin, such as
+  `https://attendance.example.com` (without a trailing slash)
+- `CRON_SECRET`: the same value configured in the deployment environment
+
+The workflow runs every five minutes and can also be started manually from the
+Actions tab. GitHub Actions schedules can be delayed during periods of load,
+so the endpoint remains idempotent and safely processes any stale requests on
+the next run.
+
 ---
 
 ## 🔒 Security & Reliability

@@ -1,0 +1,3 @@
+-- Baseline for the schema migration already applied to the deployed database.
+-- The database contains this migration in _prisma_migrations, so this file is
+-- intentionally empty and exists to restore local migration history.

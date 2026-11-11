@@ -13,6 +13,7 @@ export default async function DashboardPage() {
     prisma.session.findFirst({
       where: {
         isPreEvent: true,
+        isActive: true,
         startsAt: { gt: new Date() }, // Turns off right when meeting starts
       },
       select: { id: true },
