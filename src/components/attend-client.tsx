@@ -49,19 +49,25 @@ function isTerminalStatus(status: string): boolean {
 
 
 export function AttendClient({ member }: { member: any }) {
-  const { data, isLoading, mutate } = useSWR<{ sessions: SessionRow[] }>("/api/attendance/current", {
-    refreshInterval: 20000,
-  });
-  const { data: qrData } = useSWR<{ token: string; refreshSeconds: number }>("/api/attendance/qr", {
-    refreshInterval: 50000,
-  });
-
-  const [scanningSession, setScanningSession] = useState<string | null>(null);
   const [showQr, setShowQr] = useState(false);
+  const [scanningSession, setScanningSession] = useState<string | null>(null);
   const [showEventForm, setShowEventForm] = useState(false);
   const [signingOutSession, setSigningOutSession] = useState<string | null>(null);
   const [feedback, setFeedback] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+
+  const { data, isLoading, mutate } = useSWR<{ sessions: SessionRow[] }>("/api/attendance/current", {
+    refreshInterval: 30000,
+    revalidateOnFocus: true,
+    dedupingInterval: 5000,
+  });
+  const { data: qrData } = useSWR<{ token: string; refreshSeconds: number }>(
+    showQr ? "/api/attendance/qr" : null,
+    {
+      refreshInterval: 50000,
+      dedupingInterval: 10000,
+    }
+  );
   useRealtime((event) => {
     if (event.channel === `member:${member.id}` && event.type === "check_in") {
       celebrate();

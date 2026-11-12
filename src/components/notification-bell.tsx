@@ -30,7 +30,11 @@ export function NotificationBell() {
 
   const { data, mutate } = useSWR<{ notifications: NotificationRow[]; unread: number }>(
     "/api/notifications",
-    { refreshInterval: 30000 },
+    {
+      refreshInterval: 45000,
+      revalidateOnFocus: true,
+      dedupingInterval: 5000,
+    },
   );
   const unread = data?.unread ?? 0;
 

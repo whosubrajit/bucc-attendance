@@ -7,7 +7,9 @@ type Announcement = { id: string; message: string; createdBy: { name: string } }
 
 export function AnnouncementBanner() {
   const { data } = useSWR<{ announcements: Announcement[] }>("/api/announcements", {
-    refreshInterval: 60000,
+    refreshInterval: 120000,
+    revalidateOnFocus: true,
+    dedupingInterval: 10000,
   });
   if (!data?.announcements.length) return null;
   return (

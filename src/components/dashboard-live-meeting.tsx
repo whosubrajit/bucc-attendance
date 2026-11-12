@@ -34,10 +34,14 @@ type LiveSession = {
 export function DashboardLiveMeeting({ member }: { member: any }) {
   const [showPersonalQr, setShowPersonalQr] = useState(false);
 
-  // Poll for active live meeting sessions every 4 seconds
+  // Poll for active live meeting sessions every 30 seconds (revalidates instantly on tab focus)
   const { data, isLoading } = useSWR<{ sessions: LiveSession[] }>(
     "/api/attendance/current",
-    { refreshInterval: 4000 }
+    {
+      refreshInterval: 30000,
+      revalidateOnFocus: true,
+      dedupingInterval: 5000,
+    }
   );
 
   // Rotating personal QR token for check-in

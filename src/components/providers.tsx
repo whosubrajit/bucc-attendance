@@ -18,7 +18,13 @@ export function Providers({ children }: { children: React.ReactNode }) {
   return (
     <SessionProvider>
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        <SWRConfig value={{ fetcher, revalidateOnFocus: true }}>
+        <SWRConfig
+          value={{
+            fetcher,
+            revalidateOnFocus: true,
+            dedupingInterval: 4000,
+          }}
+        >
           {children}
           <Toaster />
         </SWRConfig>
